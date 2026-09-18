@@ -1,0 +1,33 @@
+{
+	"schemaVersion": 1,
+	"id": "slotplus",
+	"version": "${version}",
+	"name": "SlotPlus",
+	"description": "Bind inventory/armor slots to hotbar slots with a drag gesture, then quick-swap with middle-click or shift-click. Client-side only.",
+	"authors": ["Mitra-88"],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/slotplus",
+		"sources": "https://github.com/Mitra-88/SlotPlus",
+		"issues": "https://github.com/Mitra-88/SlotPlus/issues"
+	},
+	"license": "LGPL-3.0-or-later",
+	"icon": "assets/slotplus/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"me.mitra.client.SlotPlusClient"
+		],
+		"modmenu": [
+			"me.mitra.client.SlotPlusModMenu"
+		]
+	},
+	"accessWidener": "slotplus.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": ">=26.2",
+		"java": ">=25",
+		"fabric-api": "*",
+		"yet_another_config_lib_v3": ">=3.9.6+26.2-fabric",
+		"modmenu": ">=20.0.2"
+	}
+}

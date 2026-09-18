@@ -1,0 +1,7 @@
+classTweaker v2 official
+# Access widener for SlotPlus (Official Mojang Mappings).
+# Only widens what Fabric API's screen events cannot reach: the GUI-relative
+# geometry of the open container screen, used for slot hit-testing and
+# overlay positioning inside the player inventory screen.
+accessible	field	net/minecraft/client/gui/screens/inventory/AbstractContainerScreen	leftPos	I
+accessible	field	net/minecraft/client/gui/screens/inventory/AbstractContainerScreen	topPos	I

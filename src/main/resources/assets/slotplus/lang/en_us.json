@@ -1,0 +1,18 @@
+{
+	"key.category.slotplus.binds": "SlotPlus",
+	"key.slotplus.bind": "Bind inventory slot (hold + click)",
+	"yacl3.config.slotplus:config.title": "SlotPlus",
+	"yacl3.config.slotplus:config.category.general": "General",
+	"yacl3.config.slotplus:config.enabled": "Enable slot binding",
+	"yacl3.config.slotplus:config.enabled.desc": "Master switch for the bind gesture and the swap triggers. On by default.",
+	"yacl3.config.slotplus:config.hotbarShiftSwap": "Hotbar shift-click swap",
+	"yacl3.config.slotplus:config.hotbarShiftSwap.desc": "Shift-clicking a bound hotbar slot swaps it with its bound inventory slot instead of moving the item to the top of the inventory. Off by default.",
+	"yacl3.config.slotplus:config.keybindNote": "The bind key can be rebound in Options > Controls > Key Binds.",
+	"slotplus.tutorial.title": "SlotPlus",
+	"slotplus.tutorial.line1": "Hold [%s] and click an inventory or armor slot to start a bind.",
+	"slotplus.tutorial.line2": "Then click (or drag and release over) a hotbar slot to finish.",
+	"slotplus.tutorial.line3": "Middle-click or shift-click a bound slot to swap it with your hotbar.",
+	"slotplus.tutorial.dismiss": "Click anywhere to dismiss",
+	"slotplus.msg.bound": "Bound to hotbar slot %s",
+	"slotplus.msg.cleared": "Binding cleared"
+}

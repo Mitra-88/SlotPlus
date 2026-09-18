@@ -1,0 +1,158 @@
+name: Build Mod
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25 (Zulu)
+        uses: actions/setup-java@1aa87b638dacaa70f1c903fa9ec9cbd91058e2ff
+        with:
+          distribution: 'zulu'
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+          cache-cleanup: on-success
+
+      - name: Cache Gradle wrapper distributions
+        uses: actions/cache@3edfce9056124e459a23f683a21433670d47daca
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-wrapper-
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Read metadata
+        id: meta
+        run: |
+          grep -E '^(version|minecraft_version|releaseDevBuilds)=' gradle.properties >> "$GITHUB_OUTPUT" || true
+          GRADLE_VERSION=$(./gradlew --version --no-daemon | grep -E '^Gradle' | head -1 | sed 's/Gradle //' || echo "unknown")
+          echo "gradle_version=${GRADLE_VERSION}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: SlotPlus-${{ steps.sha.outputs.short_sha }}-master
+          path: build/libs/
+
+      - name: Generate release notes
+        if: steps.meta.outputs.releaseDevBuilds == 'true'
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          REPO="${{ github.repository }}"
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${{ steps.sha.outputs.short_sha }}"
+          BRANCH="${{ github.ref_name }}"
+          RUN_NUMBER="${{ github.run_number }}"
+          BUILT_AT="$(date -u +'%Y-%m-%d %H:%M UTC')"
+
+          PREV_SHA="$(git rev-list -n 1 refs/tags/nightly 2>/dev/null || true)"
+          if [ -z "$PREV_SHA" ]; then
+            PREV_SHA="$(git rev-list --max-parents=0 "$SHA")"
+          fi
+
+          CHANGES="$(git log "${PREV_SHA}..${SHA}" --pretty=format:'* %s (`%h`)' --no-merges | head -n 20)"
+          if [ -z "$CHANGES" ]; then
+            CHANGES="* No changes since last nightly"
+          fi
+
+          HASHES=""
+          for f in build/libs/*.jar; do
+            name="$(basename "$f")"
+            sha256="$(sha256sum "$f" | awk '{print $1}')"
+            sha512="$(sha512sum "$f" | awk '{print $1}')"
+            HASHES="${HASHES}* \`${name}\`\n  - SHA-256: \`${sha256}\`\n  - SHA-512: \`${sha512}\`\n"
+          done
+
+          # Read versions from gradle.properties (with safe fallbacks)
+          FABRIC_LOADER="$(grep -oP '(?<=^loader_version=)\S+' gradle.properties || echo 'unknown')"
+          FABRIC_API="$(grep -oP '(?<=^fabric_api_version=)\S+' gradle.properties || echo 'unknown')"
+          MODMENU="$(grep -oP '(?<=^modmenu_version=)\S+' gradle.properties || echo 'unknown')"
+          YACL="$(grep -oP '(?<=^yacl_version=)\S+' gradle.properties || echo 'unknown')"
+          LOOM_VERSION="$(grep -oP '(?<=^loom_version=)\S+' gradle.properties || echo 'unknown')"
+          GRADLE_VERSION="${{ steps.meta.outputs.gradle_version }}"
+
+          JAVA_VER="25 (Zulu)"
+
+          {
+            echo "**Automated Nightly Build**"
+            echo "* **Minecraft Version:** \`${{ steps.meta.outputs.minecraft_version }}\`"
+            echo "* **Base Version:** \`${{ steps.meta.outputs.version }}\`"
+            echo "* **Build Number:** #${RUN_NUMBER}"
+            echo "* **Branch:** [\`${BRANCH}\`](https://github.com/${REPO}/tree/${SHA})"
+            echo "* **Commit:** [\`${SHORT_SHA}\`](https://github.com/${REPO}/commit/${SHA})"
+            echo "* **Built on:** ${BUILT_AT}"
+            echo "* **Java Runtime:** Java ${JAVA_VER}"
+            echo "* **Gradle Version:** ${GRADLE_VERSION}"
+            echo ""
+            echo "## 📦 Dependencies"
+            echo "| Dependency | Version |"
+            echo "|------------|---------|"
+            echo "| Fabric Loader | \`${FABRIC_LOADER}\` |"
+            echo "| Fabric API | \`${FABRIC_API}\` |"
+            echo "| Mod Menu | \`${MODMENU}\` |"
+            echo "| YACL | \`${YACL}\` |"
+            echo "| Loom | \`${LOOM_VERSION}\` |"
+            echo "| Gradle | \`${GRADLE_VERSION}\` |"
+            echo ""
+            echo "## 📝 Recent Changes"
+            echo -e "$CHANGES"
+            echo ""
+            echo "## 🔐 File Hashes"
+            echo -e "$HASHES"
+            echo "> [!CAUTION]"
+            echo "> This build is automatically generated and unreleased. Features may be incomplete, unstable, or potentially breaking. Backup your configs before testing."
+          } > release_notes.md
+
+          cat release_notes.md
+
+      - name: Update nightly pre-release
+        if: steps.meta.outputs.releaseDevBuilds == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="nightly"
+
+          gh release delete "$TAG" --yes --cleanup-tag || true
+
+          gh release create "$TAG" build/libs/*.jar \
+            --title "Nightly (mc${{ steps.meta.outputs.minecraft_version }}, build #${{ github.run_number }})" \
+            --notes-file release_notes.md \
+            --target "${{ github.sha }}"
