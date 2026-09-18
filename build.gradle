@@ -1,5 +1,6 @@
 plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'idea'
 }
 
 loom {
@@ -33,6 +34,90 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	implementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
 	implementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+	testImplementation platform("org.junit:junit-bom:6.1.3")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+	testImplementation sourceSets.client.output
+}
+
+tasks.named("test", Test) {
+	useJUnitPlatform()
+}
+
+idea {
+	module {
+		downloadSources = true
+		downloadJavadoc = true
+	}
+}
+
+tasks.register('extractAgentSources') {
+	group = 'documentation'
+	description = 'Extracts all dependency and Minecraft source jars into agent_sources/src for plain-text reading (opt-in via -PagentSources, or run this task directly).'
+
+	def outputDir = layout.projectDirectory.dir('agent_sources/src')
+	outputs.dir(outputDir)
+	outputs.upToDateWhen { false }
+	dependsOn tasks.named('genSources')
+
+	doLast {
+		def moduleIds = configurations.compileClasspath.incoming.resolutionResult
+				.allComponents
+				.collect { it.moduleVersion }
+				.findAll { it != null }
+				.collect { "${it.group}:${it.name}:${it.version}" }
+				.unique()
+		def sourcesConfig = configurations.detachedConfiguration(
+				moduleIds.collect { dependencies.create("${it}:sources") } as Dependency[]
+		)
+		sourcesConfig.transitive = false
+		def sourceJars = sourcesConfig.resolvedConfiguration.lenientConfiguration
+				.artifacts*.file
+
+		def minecraftSourceJars = [
+				layout.projectDirectory.dir('.gradle/loom-cache/minecraftMaven').asFile,
+				new File(gradle.gradleUserHomeDir, 'caches/fabric-loom/minecraftMaven'),
+		].collectMany { cacheDir ->
+			fileTree(cacheDir) { include "**/*${project.minecraft_version}-sources.jar" }.files
+		}
+
+		def output = outputDir.asFile
+		delete(output)
+		output.mkdirs()
+
+		def jars = (sourceJars + minecraftSourceJars)
+				.findAll { it.name.endsWith('-sources.jar') }
+				.unique { it.name }
+		jars.each { jar ->
+			println "extractAgentSources: ${jar.name}"
+			copy {
+				from(zipTree(jar)) {
+					include '**/*.java'
+				}
+				into(output)
+				duplicatesStrategy = DuplicatesStrategy.INCLUDE
+			}
+		}
+		println "extractAgentSources: extracted ${jars.size()} source jars into ${output}"
+	}
+}
+
+tasks.named('build') {
+	dependsOn tasks.named('genSources')
+	if (providers.gradleProperty('agentSources').isPresent()) {
+		dependsOn tasks.named('extractAgentSources')
+	}
+}
+
+tasks.named('idea') {
+	dependsOn tasks.named('genSources')
+}
+
+def genSourcesTasks = tasks.matching { it.name == 'genSources' || it.name.endsWith('SourcesWithVineflower') }
+
+['compileJava', 'compileClientJava', 'compileTestJava', 'test'].each { taskName ->
+	tasks.named(taskName) { dependsOn genSourcesTasks }
 }
 
 def modVersion = project.version.toString()

@@ -8,50 +8,28 @@ things like keeping your dungeon gear, a wand, or a quick-stash stack one click 
 
 ## What it does
 
-- **Bind** any two of your slots inventory to hotbar, or hotbar to hotbar, so you can
-  one-click swap two items that both live in your hotbar.
-- **Swap** with one click: middle-click or shift-click a bound slot in your inventory and its
-  contents trade places with the paired hotbar slot. Works even if one side is empty.
-- **Optional hotbar swap** (off by default, toggle in the config): shift-clicking a bound
-  hotbar slot swaps it with its bound partner (inventory or another hotbar slot) instead of
-  moving the item to the top of your inventory.
-- Bound slots show a small icon, and hovering a bound slot draws a line to its partner.
+- **Bind** two slots together: an inventory slot to a hotbar slot, or hotbar to hotbar.
+- **Swap** their contents with one click on either slot. Works even if one side is empty.
+- Bound slots show the number of the hotbar key that swaps them, and a line to their partner when you hover them.
+- Optional toggles in the config: swap on shift-click for hotbar slots, and binding in the creative inventory.
 
 ## How to use it
 
-1. Open your inventory (**E**). A short tutorial pops up once, the first time only.
-2. **Bind a slot:** hold **B** (the bind key), click the first slot you want, then click the
-   second one — you can start from either your inventory or your hotbar, whichever you're
-   already looking at. Pink outlines show where you're allowed to click.
-3. **Swap:** middle-click the bound slot. Done — your item and the paired item trade places.
-4. **Unbind:** hold **B**, click the bound slot, then release **B** anywhere outside the
-   valid partner slots. Or just bind it to a different slot instead.
+1. Open your inventory (**E**). A short tutorial shows up the first time.
+2. Hold **B** and click two slots to bind them. Pink outlines show where you can click.
+3. Middle-click a bound slot to swap it with its partner. Shift-click on a bound inventory slot also swaps.
+4. To unbind, hold **B**, click the slot, then release **B** outside the pink slots.
 
-The bind key is a normal Minecraft keybind — change it under
-**Options → Controls → Key Binds → SlotPlus**.
-
-## Config
-
-Open it through **Mod Menu → SlotPlus → Configure**. Two options:
-
-| Option | Default | What it does |
-|--------|---------|--------------|
-| Enable slot binding | On | Master switch for everything above. |
-| Hotbar shift-click swap | Off | Shift-clicking a bound hotbar slot swaps it with its bound partner instead of quick-moving the item to the top of your inventory. |
-
-The mod ships enabled, so if nothing seems to happen, make sure it wasn't toggled off.
+The bind key can be changed under **Options → Controls → Key Binds → SlotPlus**.
 
 ## Is it allowed on Hypixel?
 
-Like with any mod, and especially any mod that touches inventory behavior, Hypixel's stance
-is **use at your own risk**. Nobody can promise you'll never be flagged, and you should
-follow the server's rules.
+Use at your own risk, like with any mod. Nobody can promise you'll never be flagged.
 
-That said, here's why I personally consider it safe: the mod doesn't do anything a player
-can't already do by hand. The swap it sends is exactly the same inventory click your own
-number-key hotbar swap sends same packet, same kind, one click per input. There is no
-automation, no macros, nothing queued, repeated, or done faster than a human could. It just
-saves you the two clicks of dragging an item to your hotbar and back.
+## Compatibility notes
+
+Mods that also manage your inventory (Skyblocker and similar) hook the same mouse clicks SlotPlus does, so they can interfere with binds and swaps. If binding stops
+responding or clicks behave oddly, try toggling those mods off or open an issue so I can fix it.
 
 ## Install & Requirements
 
@@ -64,17 +42,6 @@ Supported Minecraft versions are listed on the (Soon) [Modrinth page](https://mo
 
 ## Credits & license
 
-- Original slot binding concept, behavior, and the `bound.png` icon: **NotEnoughUpdates**
-  (NEU). This mod is an independent port of that feature to modern Fabric it is a
-  derivative work of NEU and couldn't exist without it. No NEU code is bundled here beyond
-  what porting the feature requires.
-- Because NEU is licensed under the **GNU Lesser General Public License v3.0 (or any later
-  version)**, this port is a modified version of it and is therefore distributed under the
-  same terms: **LGPL-3.0-or-later**. The full license text ships in the `LICENSE` file (the
-  LGPL incorporates the GPL-3.0 by reference, so both texts are included) and is embedded in
-  every built jar.
-
-Under LGPL-3.0-or-later you're free to use, study, modify, and redistribute this mod, and to
-release your own modified versions as long as you keep the same license and stay
-LGPL-compatible. See the [GNU LGPL page](https://www.gnu.org/licenses/lgpl-3.0.html) for the
-plain details.
+Slot binding is a feature from **NotEnoughUpdates (NEU)**. I got so used to it on Hypixel
+that playing without it stopped feeling right, so I ported it to modern Fabric. The idea and the little `bound.png` icon belong to NEU, the code here is my own implementation of their feature.
+Since it's a port of an LGPL project, SlotPlus ships under the same license,  **LGPL-3.0-or-later**. The full text is in the `LICENSE` file and inside every jar.

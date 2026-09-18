@@ -5,6 +5,8 @@ build/
 out/
 classes/
 docs-for-agents/
+agent_sources/
+.zcode/
 
 # eclipse
 

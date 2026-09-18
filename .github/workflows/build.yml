@@ -153,6 +153,7 @@ jobs:
           gh release delete "$TAG" --yes --cleanup-tag || true
 
           gh release create "$TAG" build/libs/*.jar \
+            --prerelease \
             --title "Nightly (mc${{ steps.meta.outputs.minecraft_version }}, build #${{ github.run_number }})" \
             --notes-file release_notes.md \
             --target "${{ github.sha }}"

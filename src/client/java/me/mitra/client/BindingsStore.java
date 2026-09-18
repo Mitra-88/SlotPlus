@@ -26,24 +26,26 @@ final class BindingsStore {
             try (BufferedReader reader = Files.newBufferedReader(path)) {
                 Data data = GSON.fromJson(reader, Data.class);
                 if (data != null) {
-                    Bindings.get().restore(data.partner());
+                    Bindings.restore(data.partner());
                 }
             }
-            Bindings.get().markClean();
         } catch (Exception ignored) {
         }
+        for (int slot = 0; slot <= Bindings.MAX_SLOT; slot++) {
+            Bindings.consistentPartner(slot);
+        }
+        saveIfDirty();
     }
 
     static void saveIfDirty() {
-        Bindings bindings = Bindings.get();
-        if (!bindings.isDirty()) return;
+        if (!Bindings.isDirty()) return;
         try {
             Path path = path();
             Files.createDirectories(path.getParent());
             try (BufferedWriter writer = Files.newBufferedWriter(path)) {
-                GSON.toJson(new Data(bindings.snapshot()), writer);
+                GSON.toJson(new Data(Bindings.snapshot()), writer);
             }
-            bindings.markClean();
+            Bindings.markClean();
         } catch (Exception ignored) {
         }
     }

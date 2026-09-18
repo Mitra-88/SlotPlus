@@ -5,6 +5,7 @@ import dev.isxander.yacl3.config.v2.api.SerialEntry;
 import dev.isxander.yacl3.config.v2.api.autogen.AutoGen;
 import dev.isxander.yacl3.config.v2.api.autogen.Boolean;
 import dev.isxander.yacl3.config.v2.api.autogen.Label;
+import dev.isxander.yacl3.config.v2.api.autogen.TickBox;
 import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.Component;
@@ -37,17 +38,34 @@ public final class SlotPlusConfig {
     public final Component keybindNote = Component.translatable(
             "yacl3.config." + SlotPlusClient.MOD_ID + ":config.keybindNote");
 
-    @SerialEntry
-    public boolean tutorialSeen = false;
+    @AutoGen(category = CATEGORY_GENERAL)
+    @Boolean(colored = true)
+    @SerialEntry(comment = "Allow binding and swapping while the creative inventory is open")
+    public boolean creativeSupport = false;
 
-    public SlotPlusConfig() {
-    }
+    @AutoGen(category = CATEGORY_GENERAL)
+    @TickBox
+    @SerialEntry(comment = "Show the binding tutorial again on the next inventory open")
+    public boolean showTutorial = true;
+
+    @AutoGen(category = CATEGORY_GENERAL)
+    @TickBox
+    @SerialEntry(comment = "Draw the paired hotbar slot's number on each bound slot")
+    public boolean showPartnerDigit = true;
 
     static boolean isEnabled() {
         return HANDLER.instance().enabled;
     }
 
+    static boolean isCreativeSupportEnabled() {
+        return HANDLER.instance().creativeSupport;
+    }
+
     static boolean isHotbarShiftSwapEnabled() {
         return HANDLER.instance().hotbarShiftSwap;
+    }
+
+    static boolean isPartnerDigitEnabled() {
+        return HANDLER.instance().showPartnerDigit;
     }
 }
