@@ -13,23 +13,23 @@ final class SwapSender {
     private final long[] lastSwapAt = new long[Bindings.MAX_SLOT + 1];
 
     boolean trySend(InventoryMenu menu, MultiPlayerGameMode gameMode, LocalPlayer player,
-                    int clickedSlot, int hotbarButton, int rateLimitKey) {
-        if (!claim(rateLimitKey)) return false;
-        gameMode.handleContainerInput(menu.containerId, clickedSlot, hotbarButton, ContainerInput.SWAP, player);
+                    int clickedSlot, int button, ContainerInput input, int rateLimitKey) {
+        if (isRateLimited(rateLimitKey)) return false;
+        gameMode.handleContainerInput(menu.containerId, clickedSlot, button, input, player);
         return true;
     }
 
-    boolean trySendCreative(InventoryMenu menu, Player player, int menuSlot, int hotbarButton, int rateLimitKey) {
-        if (!claim(rateLimitKey)) return false;
-        menu.clicked(menuSlot, hotbarButton, ContainerInput.SWAP, player);
+    boolean trySendCreative(InventoryMenu menu, Player player, int menuSlot, int button, ContainerInput input, int rateLimitKey) {
+        if (isRateLimited(rateLimitKey)) return false;
+        menu.clicked(menuSlot, button, input, player);
         menu.broadcastChanges();
         return true;
     }
 
-    private boolean claim(int rateLimitKey) {
+    private boolean isRateLimited(int rateLimitKey) {
         long now = Util.getMillis();
-        if (now - lastSwapAt[rateLimitKey] < RATE_LIMIT_MS) return false;
+        if (now - lastSwapAt[rateLimitKey] < RATE_LIMIT_MS) return true;
         lastSwapAt[rateLimitKey] = now;
-        return true;
+        return false;
     }
 }

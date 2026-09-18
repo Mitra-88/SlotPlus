@@ -44,6 +44,14 @@ public final class SlotPlusConfig {
     public boolean creativeSupport = false;
 
     @AutoGen(category = CATEGORY_GENERAL)
+    @WarningBoolean(colored = true)
+    @SerialEntry(comment = "Allow binding two main-inventory slots to each other (NEU considers this cheat territory, swaps use two clicks)")
+    public boolean inventoryPairs = false;
+
+    @SerialEntry(comment = "Whether the inventory-bind warning has been shown")
+    public boolean inventoryPairsWarned = false;
+
+    @AutoGen(category = CATEGORY_GENERAL)
     @TickBox
     @SerialEntry(comment = "Show the binding tutorial again on the next inventory open")
     public boolean showTutorial = true;
@@ -59,6 +67,10 @@ public final class SlotPlusConfig {
 
     static boolean isCreativeSupportEnabled() {
         return HANDLER.instance().creativeSupport;
+    }
+
+    static boolean isInventoryPairsEnabled() {
+        return HANDLER.instance().inventoryPairs;
     }
 
     static boolean isHotbarShiftSwapEnabled() {

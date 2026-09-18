@@ -3,7 +3,7 @@
 	"id": "slotplus",
 	"version": "${version}",
 	"name": "SlotPlus",
-	"description": "Bind inventory slots to hotbar slots with a drag gesture, then quick-swap with middle-click or shift-click. Client-side only.",
+	"description": "A port of NotEnoughUpdates' slot binding for modern Minecraft.",
 	"authors": ["Mitra-88"],
 	"contact": {
 		"homepage": "https://modrinth.com/mod/slotplus",

@@ -3,6 +3,8 @@ package me.mitra.client;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,7 +12,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BindingsTest {
     @BeforeEach
     void reset() {
-        Bindings.restore(new int[Bindings.MAX_SLOT + 1]);
+        int[] unbound = new int[Bindings.MAX_SLOT + 1];
+        Arrays.fill(unbound, -1);
+        Bindings.restore(unbound);
         Bindings.markClean();
     }
 
@@ -22,10 +26,10 @@ class BindingsTest {
     }
 
     @Test
-    void bindRequiresHotbarSide() {
+    void bindAllowsInventoryPairs() {
         Bindings.bind(10, 11);
-        assertEquals(-1, Bindings.consistentPartner(10));
-        assertEquals(-1, Bindings.consistentPartner(11));
+        assertEquals(11, Bindings.consistentPartner(10));
+        assertEquals(10, Bindings.consistentPartner(11));
     }
 
     @Test

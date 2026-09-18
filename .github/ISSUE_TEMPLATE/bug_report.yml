@@ -8,10 +8,11 @@ body:
       value: |
         Thanks for taking the time to report this.
         Quick note on things that LOOK like bugs but aren't:
-        - The mod works in your survival inventory screen, including screens from other mods that extend it (e.g. Skyblocker's inventory). Creative inventory, chests, NPC shops, and other GUIs are deliberately ignored that's by design.
-        - Completing a bind anywhere that isn't a valid partner slot (including releasing over the same slot) clears that slot's binding that's the intended way to unbind. You can start a bind from either an inventory slot or a hotbar slot; pairs can be inventory-to-hotbar or hotbar-to-hotbar. The outlines show where you're allowed to finish.
+        - The mod works in your survival inventory screen, including screens from other mods that extend it (e.g. Skyblocker's inventory), and in the creative inventory if "Enable in creative inventory" is on in the config. Chests, NPC shops, and other GUIs are deliberately ignored; that's by design.
+        - Completing a bind anywhere that isn't a valid partner slot clears that slot's binding; that's the intended way to unbind. Releasing the mouse back over the slot you started from ends nothing — the bind stays open until you finish over a valid partner or anywhere else. You can start a bind from either an inventory slot or a hotbar slot; pairs can be inventory-to-hotbar or hotbar-to-hotbar (or inventory-to-inventory, if you turned that option on). The outlines show where you're allowed to finish.
         - Armor, offhand, and crafting slots can't be bound.
-        - The hotbar shift-swap option ships OFF, turn it on in the config before reporting that shift-clicking your hotbar doesn't swap.
+        - The hotbar shift-swap option ships OFF; turn it on in the config before reporting that shift-clicking your hotbar doesn't swap.
+        - With inventory-to-inventory binds on, swapping such a pair takes two clicks: middle-click one slot, then its partner (middle-clicking the same slot again cancels). Middle-clicking anything else in between just performs the normal click.
 
   - type: textarea
     id: what-happened
@@ -19,7 +20,7 @@ body:
       label: What happened?
       description: |
         What did you see, and what did you expect instead?
-        Screenshots or a short video clip are super helpful just drag & drop them right into this box.
+        Screenshots or a short video clip are super helpful; just drag & drop them right into this box.
       placeholder: |
         I bound a slot to hotbar 3, the icon shows, but shift-clicking it moves the item to the top of my inventory instead of swapping.
         I expected it to swap with the hotbar slot.
@@ -32,7 +33,7 @@ body:
       label: Where does this happen?
       options:
         - Singleplayer
-        - On a server (multiplayer) please say which kind (Hypixel, vanilla, other)
+        - On a server (multiplayer), please say which kind (Hypixel, vanilla, other)
         - Both
     validations:
       required: true
@@ -41,7 +42,7 @@ body:
     id: screen
     attributes:
       label: Which screen does it happen in?
-      description: The mod is only active in survival-inventory screens (including modded replacements) on purpose.
+      description: The mod is only active in the survival inventory (including modded replacement screens), and in the creative inventory only if the 'Enable in creative inventory' config option is on.
       options:
         - My survival inventory (E)
         - Creative inventory
@@ -54,7 +55,7 @@ body:
     id: vanilla
     attributes:
       label: Does the same thing happen without the mod?
-      description: If you can, test with the mod removed it saves me a lot of time.
+      description: If you can, test with the mod removed; it saves me a lot of time.
       options:
         - "No, only with the mod"
         - "Yes, vanilla does it too"
@@ -66,9 +67,9 @@ body:
     id: versions
     attributes:
       label: Versions
-      description: Please provide all of these the mod version is in the .jar filename in your `mods` folder. YACL and Mod Menu are required for the config screen; YACL is required,.
+      description: Please provide all of these. The mod version is in the .jar filename in your `mods` folder. Fabric API, YACL, and Mod Menu are required dependencies; the mod won't load without them.
       placeholder: |
-        SlotPlus: 0.2.0
+        SlotPlus: 1.1.0
         Minecraft: 26.2
         Fabric Loader: 0.19.5
         Fabric API: 0.160.0+26.2
@@ -84,7 +85,7 @@ body:
       description: |
         List them if you can. Inventory, HUD, and tooltip mods are especially interesting.
       placeholder: |
-        sodium-fabric-0.9.2-beta.1+mc26.2.jar
+        sodium-fabric-0.9.2+mc26.2.jar
         lithium-fabric-0.25.3+mc26.2.jar
 
   - type: textarea
@@ -100,9 +101,9 @@ body:
     attributes:
       label: Steps to reproduce
       description: |
-        Exact steps are gold — "hold B, click slot 12, click hotbar 3, release B" is much better than "it happens sometimes".
+        Exact steps are gold: "hold B, click slot 12, click hotbar 3, release B" is much better than "it happens sometimes".
         Also tell me if it happens every time or just occasionally.
-        A screenshot or short clip helps a LOT more than words alone just please, not 144p 🙏😭 (upload it somewhere and send it here)
+        A screenshot or short clip helps a LOT more than words alone. Just please, not 144p 🙏😭 (upload it somewhere and link it here)
       placeholder: |
         1. Open inventory, press B, click slot 12.
         2. Click hotbar slot 3.

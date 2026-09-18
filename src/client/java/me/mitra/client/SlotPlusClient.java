@@ -1,6 +1,7 @@
 package me.mitra.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.isxander.yacl3.config.v2.api.autogen.OptionFactory;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -14,6 +15,7 @@ import org.lwjgl.glfw.GLFW;
 
 public final class SlotPlusClient implements ClientModInitializer {
     public static final String MOD_ID = "slotplus";
+    public static final String BIND_KEY_NAME = "key." + MOD_ID + ".bind";
     public static final Identifier BOUND_ICON = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/bound.png");
 
     private static KeyMapping bindKey;
@@ -22,9 +24,10 @@ public final class SlotPlusClient implements ClientModInitializer {
     public void onInitializeClient() {
         SlotPlusConfig.HANDLER.load();
         BindingsStore.load();
+        OptionFactory.register(WarningBoolean.class, new WarningBooleanFactory());
 
         bindKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key." + MOD_ID + ".bind",
+                BIND_KEY_NAME,
                 InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_B,
                 KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "binds"))));

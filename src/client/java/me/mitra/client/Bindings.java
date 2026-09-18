@@ -9,6 +9,10 @@ final class Bindings {
     private static final int[] partner = new int[MAX_SLOT + 1];
     private static boolean dirty;
 
+    static {
+        Arrays.fill(partner, -1);
+    }
+
     private Bindings() {
     }
 
@@ -37,7 +41,6 @@ final class Bindings {
 
     static void bind(int a, int b) {
         if (!isBindable(a) || !isBindable(b) || a == b) return;
-        if (!isHotbarSlot(a) && !isHotbarSlot(b)) return;
         if (partner[a] == b && partner[b] == a) return;
         clearPartner(a);
         clearPartner(b);

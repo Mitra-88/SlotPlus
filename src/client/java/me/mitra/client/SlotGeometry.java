@@ -10,14 +10,35 @@ final class SlotGeometry {
     }
 
     static boolean isPlayerSlot(Slot slot, boolean creative) {
-        if (slot == null || !(slot.container instanceof Inventory)) return false;
-        int raw = slot.getContainerSlot();
-        if (creative) {
-            if (raw >= 5 && raw < 9) return false;
-            if (raw >= InventoryMenu.USE_ROW_SLOT_START && raw < InventoryMenu.USE_ROW_SLOT_END) return true;
-            return raw >= InventoryMenu.INV_SLOT_START && Bindings.isBindable(raw);
+        return slot != null && SlotRole.of(slot, creative) == SlotRole.BINDABLE;
+    }
+
+    enum SlotRole {
+        BINDABLE(null),
+        ARMOR("armor"),
+        OFFHAND("offhand"),
+        CRAFTING("crafting"),
+        OTHER(null);
+
+        final String messageKey;
+
+        SlotRole(String keySuffix) {
+            this.messageKey = keySuffix == null ? null : SlotPlusClient.MOD_ID + ".msg." + keySuffix;
         }
-        return Bindings.isBindable(raw);
+
+        static SlotRole of(Slot slot, boolean creative) {
+            if (!(slot.container instanceof Inventory)) return creative ? OTHER : CRAFTING;
+            int raw = slot.getContainerSlot();
+            if (creative) {
+                if (raw >= 5 && raw < 9) return ARMOR;
+                if (raw == 45) return OFFHAND;
+                if (raw >= InventoryMenu.USE_ROW_SLOT_START && raw < InventoryMenu.USE_ROW_SLOT_END) return BINDABLE;
+                return raw >= InventoryMenu.INV_SLOT_START && Bindings.isBindable(raw) ? BINDABLE : OTHER;
+            }
+            if (raw >= 36 && raw < 40) return ARMOR;
+            if (raw == 40) return OFFHAND;
+            return Bindings.isBindable(raw) ? BINDABLE : OTHER;
+        }
     }
 
     static int containerSlotOf(Slot slot, boolean creative) {
