@@ -41,17 +41,21 @@ final class SlotGeometry {
         }
     }
 
-    static int containerSlotOf(Slot slot, boolean creative) {
-        int raw = slot.getContainerSlot();
-        if (creative) {
-            if (raw >= InventoryMenu.ARMOR_SLOT_START && raw < InventoryMenu.ARMOR_SLOT_END) {
-                return raw - InventoryMenu.ARMOR_SLOT_START + Bindings.firstArmorSlot();
-            }
-            if (raw >= InventoryMenu.USE_ROW_SLOT_START && raw < InventoryMenu.USE_ROW_SLOT_END) {
-                return raw - InventoryMenu.USE_ROW_SLOT_START;
-            }
+    // Creative player-tab wrappers report InventoryMenu slot indices as their raw number:
+    // hotbar 36-44, armor 5-8, offhand 45 (crafting 0-4 aliases hotbar container space).
+    // Armor runs head-first: wrapper raw 5 (head) is container 39, raw 8 (feet) is container 36.
+    static int creativeContainerSlot(int raw) {
+        if (raw >= InventoryMenu.ARMOR_SLOT_START && raw < InventoryMenu.ARMOR_SLOT_END) {
+            return Bindings.MAX_SLOT - (raw - InventoryMenu.ARMOR_SLOT_START);
+        }
+        if (raw >= InventoryMenu.USE_ROW_SLOT_START && raw < InventoryMenu.USE_ROW_SLOT_END) {
+            return raw - InventoryMenu.USE_ROW_SLOT_START;
         }
         return raw;
+    }
+
+    static int containerSlotOf(Slot slot, boolean creative) {
+        return creative ? creativeContainerSlot(slot.getContainerSlot()) : slot.getContainerSlot();
     }
 
     static int menuSlotOfContainer(int containerSlot) {
@@ -59,7 +63,9 @@ final class SlotGeometry {
             return InventoryMenu.USE_ROW_SLOT_START + containerSlot;
         }
         if (Bindings.isArmorSlot(containerSlot)) {
-            return InventoryMenu.ARMOR_SLOT_START + containerSlot - Bindings.firstArmorSlot();
+            // Vanilla adds armor menu slots head-first while container slots count down:
+            // menu 5 = head (container 39) ... menu 8 = feet (container 36).
+            return InventoryMenu.ARMOR_SLOT_START + (Bindings.MAX_SLOT - containerSlot);
         }
         return containerSlot;
     }
