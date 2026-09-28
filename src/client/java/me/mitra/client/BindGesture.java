@@ -196,7 +196,9 @@ final class BindGesture {
         } else {
             if (anythingCarried(player)) return true;
             if (!Bindings.isHotbarSlot(containerSlot) && !Bindings.isHotbarSlot(partner)) {
-                if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) return true;
+                // The pick-up/place-down flow is middle-click only — one click per input,
+                // same as moving the items by hand. Shift-click stays vanilla quick-move.
+                if (!middleClick || !SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) return true;
                 sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(containerSlot), 0, ContainerInput.PICKUP, containerSlot);
                 if (sent) pickupSwapSlot = containerSlot;
             } else {
