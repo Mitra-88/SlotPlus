@@ -29,7 +29,7 @@ public final class SlotPlusConfig {
 
     @AutoGen(category = CATEGORY_GENERAL)
     @Boolean(colored = true)
-    @SerialEntry(comment = "Shift-clicking a bound hotbar slot swaps it with its bound slot instead of quick-moving")
+    @SerialEntry(comment = "Shift-clicking a bound hotbar slot swaps it with its bound slot instead of quick-moving (armor pairs always swap on shift-click)")
     public boolean hotbarShiftSwap = false;
 
     @SuppressWarnings("unused")

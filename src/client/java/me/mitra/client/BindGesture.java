@@ -13,6 +13,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Util;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 
 final class BindGesture {
     // SDL mouse button numbering (the 26.3 input layer): 1 = left, 2 = middle, 3 = right.
@@ -178,13 +179,17 @@ final class BindGesture {
     private boolean trySwap(MouseButtonEvent event, MultiPlayerGameMode gameMode, LocalPlayer player,
                             Slot slot, int containerSlot) {
         validatePickupArmed();
-        boolean shiftClick = event.button() == MOUSE_LEFT
-                && event.hasShiftDown()
-                && (!Bindings.isHotbarSlot(containerSlot) || SlotPlusConfig.isHotbarShiftSwapEnabled());
-        if (event.button() != MOUSE_MIDDLE && !shiftClick) return true;
+        boolean middleClick = event.button() == MOUSE_MIDDLE;
+        boolean shiftClick = event.button() == MOUSE_LEFT && event.hasShiftDown();
+        if (!middleClick && !shiftClick) return true;
         if (!SlotGeometry.isPlayerSlot(slot, creative)) return true;
         int partner = Bindings.consistentPartner(containerSlot);
         if (partner == -1) return true;
+        if (shiftClick && Bindings.isHotbarSlot(containerSlot)
+                && !Bindings.isArmorSlot(partner) && !SlotPlusConfig.isHotbarShiftSwapEnabled()) {
+            // Shift-click on a hotbar slot stays vanilla quick-move, except for armor pairs.
+            return true;
+        }
 
         boolean sent;
         if (pickupSwapSlot != -1) {
@@ -200,6 +205,19 @@ final class BindGesture {
             } else {
                 int hotbarSide = Bindings.hotbarSideOf(containerSlot, partner);
                 int otherSide = containerSlot == hotbarSide ? partner : containerSlot;
+                Slot target = SlotGeometry.findSlot(screen, otherSide, creative);
+                ItemStack hotbarItem = player.getInventory().getItem(hotbarSide);
+                if (target != null) {
+                    if (hotbarItem.isEmpty() && !target.hasItem()) return true;
+                    if (!vanillaAcceptsSwap(player, target, hotbarItem)) {
+                        // Armor slots honor mayPlace/mayPickup server-side (a helmet is never
+                        // accepted by the chestplate slot): don't send a click the server
+                        // would silently drop — block the vanilla click and say so instead.
+                        showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
+                        consumedButton = event.button();
+                        return false;
+                    }
+                }
                 sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(otherSide), hotbarSide, ContainerInput.SWAP, containerSlot);
             }
         }
@@ -208,6 +226,12 @@ final class BindGesture {
             return false;
         }
         return true;
+    }
+
+    // Mirrors AbstractContainerMenu's SWAP case, which honors mayPickup/mayPlace.
+    private static boolean vanillaAcceptsSwap(LocalPlayer player, Slot target, ItemStack hotbarItem) {
+        if (hotbarItem.isEmpty()) return target.mayPickup(player);
+        return target.mayPlace(hotbarItem) && (!target.hasItem() || target.mayPickup(player));
     }
 
     private boolean sendClick(LocalPlayer player, MultiPlayerGameMode gameMode, int menuSlot, int button,
