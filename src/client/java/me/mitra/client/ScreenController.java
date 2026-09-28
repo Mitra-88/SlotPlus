@@ -10,6 +10,7 @@ final class ScreenController {
     ScreenController(AbstractContainerScreen<?> screen, Minecraft minecraft) {
         BindGesture gesture = new BindGesture(screen, minecraft);
         BindingOverlay overlay = new BindingOverlay(screen, gesture);
+        SlotPlusLog.info("screen open: {} (creative={})", screen.getClass().getName(), gesture.isCreative());
         ScreenMouseEvents.allowMouseClick(screen).register((_, event) -> {
             if (overlay.onMouseClick(event)) return false;
             return gesture.onMouseClick(event);
@@ -19,6 +20,9 @@ final class ScreenController {
         ScreenKeyboardEvents.afterKeyRelease(screen).register((_, event) -> gesture.onKeyRelease(event));
         ScreenEvents.afterForeground(screen).register((_, graphics, mouseX, mouseY, _) ->
                 overlay.render(graphics, mouseX, mouseY));
-        ScreenEvents.remove(screen).register(_ -> gesture.reset());
+        ScreenEvents.remove(screen).register(_ -> {
+            SlotPlusLog.info("screen closed: {}", screen.getClass().getName());
+            gesture.reset();
+        });
     }
 }

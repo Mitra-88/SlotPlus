@@ -61,8 +61,17 @@ public final class SlotPlusConfig {
     @SerialEntry(comment = "Draw the paired hotbar slot's number on each bound slot")
     public boolean showPartnerDigit = true;
 
+    @AutoGen(category = CATEGORY_GENERAL)
+    @TickBox
+    @SerialEntry(comment = "Log every binding and swap decision to the game log for debugging")
+    public boolean verboseLogging = true;
+
     static boolean isEnabled() {
         return HANDLER.instance().enabled;
+    }
+
+    static boolean isVerboseLoggingEnabled() {
+        return HANDLER.instance().verboseLogging;
     }
 
     static boolean isCreativeSupportEnabled() {
