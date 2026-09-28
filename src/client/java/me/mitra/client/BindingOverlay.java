@@ -31,7 +31,7 @@ final class BindingOverlay {
     private final Component tutorialTitle = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.title");
     private final Component tutorialLine1 = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.line1",
             Component.keybind(SlotPlusClient.BIND_KEY_NAME).withStyle(style -> style.withColor(ACCENT_COLOR)),
-            accent("inventory slot"));
+            accent("inventory or armor slot"));
     private final Component tutorialLine2 = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.line2",
             action("click"), accent("partner slot"));
     private final Component tutorialLine3 = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.line3",

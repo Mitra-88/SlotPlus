@@ -33,6 +33,13 @@ class BindingsTest {
     }
 
     @Test
+    void bindAllowsArmorToHotbar() {
+        Bindings.bind(36, 4);
+        assertEquals(4, Bindings.consistentPartner(36));
+        assertEquals(36, Bindings.consistentPartner(4));
+    }
+
+    @Test
     void hotbarToHotbarAllowed() {
         Bindings.bind(1, 4);
         assertEquals(4, Bindings.consistentPartner(1));
@@ -102,8 +109,21 @@ class BindingsTest {
         assertTrue(Bindings.isHotbarSlot(8));
         assertFalse(Bindings.isHotbarSlot(9));
         assertTrue(Bindings.isBindable(35));
-        assertFalse(Bindings.isBindable(36));
+        assertTrue(Bindings.isBindable(36));
+        assertTrue(Bindings.isBindable(39));
+        assertFalse(Bindings.isBindable(40));
         assertFalse(Bindings.isBindable(-1));
+        assertTrue(Bindings.isArmorSlot(36));
+        assertTrue(Bindings.isArmorSlot(39));
+        assertFalse(Bindings.isArmorSlot(35));
+        assertFalse(Bindings.isArmorSlot(40));
+    }
+
+    @Test
+    void offhandIsOutsideBindableRange() {
+        Bindings.bind(40, 2);
+        assertEquals(-1, Bindings.consistentPartner(40));
+        assertEquals(-1, Bindings.consistentPartner(2));
     }
 
     @Test

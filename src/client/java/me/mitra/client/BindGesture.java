@@ -83,6 +83,10 @@ final class BindGesture {
                     consumedButton = event.button();
                     return false;
                 }
+                if (isForbidden(slot)) {
+                    consumedButton = event.button();
+                    return false;
+                }
                 endPairing();
             }
             return true;
@@ -92,8 +96,14 @@ final class BindGesture {
         if (slot == null) return true;
         int containerSlot = SlotGeometry.containerSlotOf(slot, creative);
 
-        if (bindKeyDown && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            return startBind(event, player, slot, containerSlot);
+        if (bindKeyDown) {
+            if (isForbidden(slot) && event.button() != GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+                consumedButton = event.button();
+                return false;
+            }
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                return startBind(event, player, slot, containerSlot);
+            }
         }
         return trySwap(event, gameMode, player, slot, containerSlot);
     }
@@ -143,13 +153,23 @@ final class BindGesture {
     }
 
     private boolean startBind(MouseButtonEvent event, LocalPlayer player, Slot slot, int containerSlot) {
-        if (!SlotGeometry.isPlayerSlot(slot, creative) || anythingCarried(player)) return true;
+        if (!SlotGeometry.isPlayerSlot(slot, creative)) return true;
+        if (anythingCarried(player)) {
+            // Bind mode is modal: swallow the click instead of letting vanilla
+            // place the carried item into the slot.
+            consumedButton = event.button();
+            return false;
+        }
         originWasBound = Bindings.consistentPartner(containerSlot) != -1;
         Bindings.unbind(containerSlot);
         BindingsStore.saveIfDirty();
         originContainerSlot = containerSlot;
         consumedButton = event.button();
         return false;
+    }
+
+    private boolean isForbidden(Slot slot) {
+        return slot != null && SlotGeometry.SlotRole.of(slot, creative).messageKey != null;
     }
 
     private boolean trySwap(MouseButtonEvent event, MultiPlayerGameMode gameMode, LocalPlayer player,

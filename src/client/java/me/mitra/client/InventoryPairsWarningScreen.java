@@ -47,10 +47,7 @@ final class InventoryPairsWarningScreen extends Screen {
     }
 
     private static Component warningBody() {
-        return Component.translatable(SlotPlusClient.MOD_ID + ".warning.body")
-                .append("\n\n")
-                .append(Component.translatable(SlotPlusClient.MOD_ID + ".warning.fine")
-                        .withStyle(ChatFormatting.YELLOW));
+        return Component.translatable(SlotPlusClient.MOD_ID + ".warning.body");
     }
 
     @Override

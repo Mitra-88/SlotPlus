@@ -15,7 +15,6 @@ final class SlotGeometry {
 
     enum SlotRole {
         BINDABLE(null),
-        ARMOR("armor"),
         OFFHAND("offhand"),
         CRAFTING("crafting"),
         OTHER(null);
@@ -30,29 +29,39 @@ final class SlotGeometry {
             if (!(slot.container instanceof Inventory)) return creative ? OTHER : CRAFTING;
             int raw = slot.getContainerSlot();
             if (creative) {
-                if (raw >= 5 && raw < 9) return ARMOR;
-                if (raw == 45) return OFFHAND;
+                // Creative player-tab wrappers report InventoryMenu slot indices as their raw number:
+                // hotbar 36-44, armor 5-8, offhand 45 (crafting 0-4 aliases hotbar container space).
+                if (raw >= InventoryMenu.ARMOR_SLOT_START && raw < InventoryMenu.ARMOR_SLOT_END) return BINDABLE;
+                if (raw == InventoryMenu.SHIELD_SLOT) return OFFHAND;
                 if (raw >= InventoryMenu.USE_ROW_SLOT_START && raw < InventoryMenu.USE_ROW_SLOT_END) return BINDABLE;
                 return raw >= InventoryMenu.INV_SLOT_START && Bindings.isBindable(raw) ? BINDABLE : OTHER;
             }
-            if (raw >= 36 && raw < 40) return ARMOR;
-            if (raw == 40) return OFFHAND;
+            if (raw == Inventory.SLOT_OFFHAND) return OFFHAND;
             return Bindings.isBindable(raw) ? BINDABLE : OTHER;
         }
     }
 
     static int containerSlotOf(Slot slot, boolean creative) {
         int raw = slot.getContainerSlot();
-        if (creative && raw >= InventoryMenu.USE_ROW_SLOT_START && raw < InventoryMenu.USE_ROW_SLOT_END) {
-            return raw - InventoryMenu.USE_ROW_SLOT_START;
+        if (creative) {
+            if (raw >= InventoryMenu.ARMOR_SLOT_START && raw < InventoryMenu.ARMOR_SLOT_END) {
+                return raw - InventoryMenu.ARMOR_SLOT_START + Bindings.firstArmorSlot();
+            }
+            if (raw >= InventoryMenu.USE_ROW_SLOT_START && raw < InventoryMenu.USE_ROW_SLOT_END) {
+                return raw - InventoryMenu.USE_ROW_SLOT_START;
+            }
         }
         return raw;
     }
 
     static int menuSlotOfContainer(int containerSlot) {
-        return Bindings.isHotbarSlot(containerSlot)
-                ? InventoryMenu.USE_ROW_SLOT_START + containerSlot
-                : containerSlot;
+        if (Bindings.isHotbarSlot(containerSlot)) {
+            return InventoryMenu.USE_ROW_SLOT_START + containerSlot;
+        }
+        if (Bindings.isArmorSlot(containerSlot)) {
+            return InventoryMenu.ARMOR_SLOT_START + containerSlot - Bindings.firstArmorSlot();
+        }
+        return containerSlot;
     }
 
     static Slot slotAt(AbstractContainerScreen<?> screen, double mouseX, double mouseY) {

@@ -8,10 +8,10 @@ things like keeping your dungeon gear, a wand, or a quick-stash stack one click 
 
 ## What it does
 
-- **Bind** two slots together: an inventory slot to a hotbar slot, or hotbar to hotbar.
+- **Bind** two slots together: an inventory slot to a hotbar slot, hotbar to hotbar, or an armor piece to a hotbar slot.
 - **Swap** their contents with one click on either slot. Works even if one side is empty.
 - Bound slots show the number of the hotbar key that swaps them (inventory-to-inventory pairs have no number), and a line to their partner when you hover them.
-- Optional toggles in the config: hotbar numbers on bound slots, swap on shift-click for hotbar slots, binding in the creative inventory, and inventory-to-inventory binds (off by default; NEU considers those cheat territory, so the config asks every time you enable them, with a don't-ask-again option). Swapping an inventory-to-inventory pair takes two ordinary clicks: middle-click one slot, then its partner.
+- Optional toggles in the config: hotbar numbers on bound slots, swap on shift-click for hotbar slots, binding in the creative inventory, and binds that have no hotbar side (inventory-to-inventory; off by default; NEU considers those cheat territory, so the config asks every time you enable them, with a don't-ask-again option). Swapping such a pair takes two ordinary clicks: middle-click one slot, then its partner.
 
 ## How to use it
 
