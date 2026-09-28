@@ -11,7 +11,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLScancode;
 
 public final class SlotPlusClient implements ClientModInitializer {
     public static final String MOD_ID = "slotplus";
@@ -28,8 +28,8 @@ public final class SlotPlusClient implements ClientModInitializer {
 
         bindKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 BIND_KEY_NAME,
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_B,
+                InputConstants.Type.KEYBOARD,
+                SDLScancode.SDL_SCANCODE_B,
                 KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "binds"))));
 
         ScreenEvents.AFTER_INIT.register((minecraft, screen, _, _) -> {

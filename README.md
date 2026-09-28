@@ -1,6 +1,6 @@
 # SlotPlus
 
-A port of **NotEnoughUpdates' slot binding** for modern Minecraft (26.2, Fabric).
+A port of **NotEnoughUpdates' slot binding** for modern Minecraft (26.3, Fabric).
 
 If you've played Hypixel SkyBlock with NEU you already know the feature: you bind an item slot
 in your inventory to a hotbar slot, and from then on one click swaps between them. Great for

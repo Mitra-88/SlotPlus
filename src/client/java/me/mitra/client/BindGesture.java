@@ -13,9 +13,12 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Util;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
-import org.lwjgl.glfw.GLFW;
 
 final class BindGesture {
+    // SDL mouse button numbering (the 26.3 input layer): 1 = left, 2 = middle, 3 = right.
+    private static final int MOUSE_LEFT = 1;
+    private static final int MOUSE_MIDDLE = 2;
+
     private final AbstractContainerScreen<?> screen;
     private final Minecraft minecraft;
     private final boolean creative;
@@ -76,7 +79,7 @@ final class BindGesture {
         if (!SlotPlusConfig.isEnabled() || gameMode == null || player == null) return true;
 
         if (isPairing()) {
-            if (bindKeyDown && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            if (bindKeyDown && event.button() == MOUSE_LEFT) {
                 Slot slot = SlotGeometry.slotAt(screen, event.x(), event.y());
                 if (isValidPartner(slot)) {
                     completePairing(SlotGeometry.containerSlotOf(slot, creative));
@@ -97,11 +100,11 @@ final class BindGesture {
         int containerSlot = SlotGeometry.containerSlotOf(slot, creative);
 
         if (bindKeyDown) {
-            if (isForbidden(slot) && event.button() != GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+            if (isForbidden(slot) && event.button() != MOUSE_MIDDLE) {
                 consumedButton = event.button();
                 return false;
             }
-            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            if (event.button() == MOUSE_LEFT) {
                 return startBind(event, player, slot, containerSlot);
             }
         }
@@ -175,10 +178,10 @@ final class BindGesture {
     private boolean trySwap(MouseButtonEvent event, MultiPlayerGameMode gameMode, LocalPlayer player,
                             Slot slot, int containerSlot) {
         validatePickupArmed();
-        boolean shiftClick = event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+        boolean shiftClick = event.button() == MOUSE_LEFT
                 && event.hasShiftDown()
                 && (!Bindings.isHotbarSlot(containerSlot) || SlotPlusConfig.isHotbarShiftSwapEnabled());
-        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_MIDDLE && !shiftClick) return true;
+        if (event.button() != MOUSE_MIDDLE && !shiftClick) return true;
         if (!SlotGeometry.isPlayerSlot(slot, creative)) return true;
         int partner = Bindings.consistentPartner(containerSlot);
         if (partner == -1) return true;
