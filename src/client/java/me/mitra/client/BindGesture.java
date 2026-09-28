@@ -138,8 +138,8 @@ final class BindGesture {
 
     void onKeyPress(KeyEvent event) {
         if (SlotPlusClient.bindKey().matches(event)) {
+            if (!bindKeyDown) SlotPlusLog.info("bind key DOWN (pairing={})", isPairing());
             bindKeyDown = true;
-            SlotPlusLog.info("bind key DOWN (pairing={})", isPairing());
         }
     }
 
@@ -238,15 +238,17 @@ final class BindGesture {
                 return true;
             }
             if (!Bindings.isHotbarSlot(containerSlot) && !Bindings.isHotbarSlot(partner)) {
-                // The pick-up/place-down flow is middle-click only — one click per input,
-                // same as moving the items by hand. Shift-click stays vanilla quick-move.
-                if (!middleClick || !SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
-                    SlotPlusLog.info("  no hotbar side and (middleClick={}, inventoryPairs={}, slot has item={}) - passing through",
-                            middleClick, SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
+                // Shift-click or middle-click starts the pick-up/place-down flow: this
+                // click picks the item up (one click per input, same as by hand), the
+                // next click on the highlighted partner finishes the swap.
+                if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
+                    SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
+                            SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
                     return true;
                 }
-                SlotPlusLog.info("  no hotbar side: arming two-click flow - sending PICKUP on menuSlot={}",
-                        SlotGeometry.menuSlotOfContainer(containerSlot));
+                SlotPlusLog.info("  no hotbar side: {} starts the two-click swap - PICKUP on menuSlot={}, next click on slot {} finishes it",
+                        middleClick ? "middle-click" : "shift-click",
+                        SlotGeometry.menuSlotOfContainer(containerSlot), partner);
                 sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(containerSlot), 0, ContainerInput.PICKUP, containerSlot);
                 if (sent) pickupSwapSlot = containerSlot;
             } else {
