@@ -16,6 +16,8 @@
 	"yacl3.config.slotplus:config.showTutorial.desc": "Tick to see the binding tutorial again the next time you open your inventory. It unticks itself once the tutorial has been shown.",
 	"yacl3.config.slotplus:config.showPartnerDigit": "Show hotbar numbers on bound slots",
 	"yacl3.config.slotplus:config.showPartnerDigit.desc": "Draw the paired hotbar slot's number on top of each bound slot. On by default.",
+	"yacl3.config.slotplus:config.verboseLogging": "Verbose logging",
+	"yacl3.config.slotplus:config.verboseLogging.desc": "Log every binding and swap decision (which slot you clicked, what was sent to the server, what was blocked and why) to the game log, so problems can be debugged from logs/latest.log. On by default.",
 	"slotplus.tutorial.title": "SlotPlus",
 	"slotplus.tutorial.line1": "Hold [%s] and click an %s to start a bind.",
 	"slotplus.tutorial.line2": "Then %s (or drag and release over) a %s to finish.",

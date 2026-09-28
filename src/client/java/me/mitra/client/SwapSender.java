@@ -15,12 +15,16 @@ final class SwapSender {
     boolean trySend(InventoryMenu menu, MultiPlayerGameMode gameMode, LocalPlayer player,
                     int clickedSlot, int button, ContainerInput input, int rateLimitKey) {
         if (isRateLimited(rateLimitKey)) return false;
+        SlotPlusLog.info("click sent: containerId={} menuSlot={} button={} {}",
+                menu.containerId, clickedSlot, button, input);
         gameMode.handleContainerInput(menu.containerId, clickedSlot, button, input, player);
         return true;
     }
 
     boolean trySendCreative(InventoryMenu menu, Player player, int menuSlot, int button, ContainerInput input, int rateLimitKey) {
         if (isRateLimited(rateLimitKey)) return false;
+        SlotPlusLog.info("creative click: menuSlot={} button={} {} -> inventoryMenu.clicked() + broadcastChanges()",
+                menuSlot, button, input);
         menu.clicked(menuSlot, button, input, player);
         menu.broadcastChanges();
         return true;
@@ -28,7 +32,12 @@ final class SwapSender {
 
     private boolean isRateLimited(int rateLimitKey) {
         long now = Util.getMillis();
-        if (now - lastSwapAt[rateLimitKey] < RATE_LIMIT_MS) return true;
+        long since = now - lastSwapAt[rateLimitKey];
+        if (since < RATE_LIMIT_MS) {
+            SlotPlusLog.info("rate limited: slot {} clicked {} ms ago (< {} ms) - click passes through to vanilla",
+                    rateLimitKey, since, RATE_LIMIT_MS);
+            return true;
+        }
         lastSwapAt[rateLimitKey] = now;
         return false;
     }

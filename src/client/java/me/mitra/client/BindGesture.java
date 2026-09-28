@@ -75,30 +75,44 @@ final class BindGesture {
         MultiPlayerGameMode gameMode = minecraft.gameMode;
         LocalPlayer player = minecraft.player;
         if (!SlotPlusConfig.isEnabled() || gameMode == null || player == null) return true;
+        SlotPlusLog.info("mouse click: button={} shift={} at ({}, {})",
+                event.button(), event.hasShiftDown(), (int) event.x(), (int) event.y());
 
         if (isPairing()) {
             if (bindKeyDown && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 Slot slot = SlotGeometry.slotAt(screen, event.x(), event.y());
                 if (isValidPartner(slot)) {
+                    SlotPlusLog.info("pairing: clicked valid partner {} -> completing pair",
+                            SlotGeometry.containerSlotOf(slot, creative));
                     completePairing(SlotGeometry.containerSlotOf(slot, creative));
                     consumedButton = event.button();
                     return false;
                 }
                 if (isForbidden(slot)) {
+                    SlotPlusLog.info("pairing: clicked forbidden {} - click consumed, pairing continues",
+                            SlotGeometry.SlotRole.of(slot, creative));
                     consumedButton = event.button();
                     return false;
                 }
+                SlotPlusLog.info("pairing: clicked non-partner - pairing ends, click passes to vanilla");
                 endPairing();
             }
             return true;
         }
 
         Slot slot = SlotGeometry.slotAt(screen, event.x(), event.y());
-        if (slot == null) return true;
+        if (slot == null) {
+            SlotPlusLog.info("  no slot under cursor - passing through");
+            return true;
+        }
         int containerSlot = SlotGeometry.containerSlotOf(slot, creative);
+        SlotPlusLog.info("  slot: containerSlot={} role={} menuSlot={}", containerSlot,
+                SlotGeometry.SlotRole.of(slot, creative), SlotGeometry.menuSlotOfContainer(containerSlot));
 
         if (bindKeyDown) {
             if (isForbidden(slot) && event.button() != GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+                SlotPlusLog.info("bind mode: clicked forbidden {} - click consumed, nothing sent",
+                        SlotGeometry.SlotRole.of(slot, creative));
                 consumedButton = event.button();
                 return false;
             }
@@ -112,6 +126,7 @@ final class BindGesture {
     boolean onMouseRelease(MouseButtonEvent event) {
         if (event.button() != consumedButton) return true;
         consumedButton = -1;
+        SlotPlusLog.info("mouse release (button {}) swallowed to match consumed click", event.button());
         if (isPairing()) {
             Slot slot = SlotGeometry.slotAt(screen, event.x(), event.y());
             if (slot != SlotGeometry.findSlot(screen, originContainerSlot, creative)) {
@@ -124,12 +139,14 @@ final class BindGesture {
     void onKeyPress(KeyEvent event) {
         if (SlotPlusClient.bindKey().matches(event)) {
             bindKeyDown = true;
+            SlotPlusLog.info("bind key DOWN (pairing={})", isPairing());
         }
     }
 
     void onKeyRelease(KeyEvent event) {
         if (!SlotPlusClient.bindKey().matches(event)) return;
         bindKeyDown = false;
+        SlotPlusLog.info("bind key UP (pairing={})", isPairing());
         if (!SlotPlusConfig.isEnabled()) {
             clearGesture();
             return;
@@ -142,8 +159,11 @@ final class BindGesture {
 
     private void resolvePairing(Slot slot) {
         if (isValidPartner(slot)) {
+            SlotPlusLog.info("pairing: released over valid partner {} -> completing pair",
+                    SlotGeometry.containerSlotOf(slot, creative));
             completePairing(SlotGeometry.containerSlotOf(slot, creative));
         } else {
+            SlotPlusLog.info("pairing: released over {} -> pairing ends", slot == null ? "nothing" : "a non-partner");
             endPairing();
         }
     }
@@ -154,18 +174,25 @@ final class BindGesture {
     }
 
     private boolean startBind(MouseButtonEvent event, LocalPlayer player, Slot slot, int containerSlot) {
-        if (!SlotGeometry.isPlayerSlot(slot, creative)) return true;
+        if (!SlotGeometry.isPlayerSlot(slot, creative)) {
+            SlotPlusLog.info("bind mode: clicked non-player slot - passing through");
+            return true;
+        }
         if (anythingCarried(player)) {
             // Bind mode is modal: swallow the click instead of letting vanilla
             // place the carried item into the slot.
+            SlotPlusLog.info("bind mode: item on cursor - click consumed so vanilla cannot place it");
             consumedButton = event.button();
             return false;
         }
-        originWasBound = Bindings.consistentPartner(containerSlot) != -1;
+        int previous = Bindings.consistentPartner(containerSlot);
+        originWasBound = previous != -1;
         Bindings.unbind(containerSlot);
         BindingsStore.saveIfDirty();
         originContainerSlot = containerSlot;
         consumedButton = event.button();
+        SlotPlusLog.info("bind origin: slot={} (was bound to {}) - now pairing, click another slot or release B",
+                containerSlot, previous);
         return false;
     }
 
@@ -179,26 +206,47 @@ final class BindGesture {
         boolean middleClick = event.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE;
         boolean shiftClick = event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.hasShiftDown();
         if (!middleClick && !shiftClick) return true;
-        if (!SlotGeometry.isPlayerSlot(slot, creative)) return true;
+        if (!SlotGeometry.isPlayerSlot(slot, creative)) {
+            SlotPlusLog.info("swap: not a player slot - passing through");
+            return true;
+        }
         int partner = Bindings.consistentPartner(containerSlot);
-        if (partner == -1) return true;
+        if (partner == -1) {
+            SlotPlusLog.info("swap: slot {} is not bound - passing through", containerSlot);
+            return true;
+        }
+        SlotPlusLog.info("swap try: slot {} is bound to {}", containerSlot, partner);
         if (shiftClick && Bindings.isHotbarSlot(containerSlot)
                 && !Bindings.isArmorSlot(partner) && !SlotPlusConfig.isHotbarShiftSwapEnabled()) {
             // Shift-click on a hotbar slot stays vanilla quick-move, except for armor pairs.
+            SlotPlusLog.info("  shift-click on hotbar side without armor partner (hotbarShiftSwap off) - vanilla quick-move");
             return true;
         }
 
         boolean sent;
         if (pickupSwapSlot != -1) {
-            if (containerSlot != pickupSwapSlot && partner != pickupSwapSlot) return true;
+            if (containerSlot != pickupSwapSlot && partner != pickupSwapSlot) {
+                SlotPlusLog.info("  armed flow: clicked unrelated slot - passing through (item stays on cursor)");
+                return true;
+            }
+            SlotPlusLog.info("  armed flow: finishing click on {} - sending second PICKUP", containerSlot);
             sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(containerSlot), 0, ContainerInput.PICKUP, containerSlot);
             if (sent) pickupSwapSlot = -1;
         } else {
-            if (anythingCarried(player)) return true;
+            if (anythingCarried(player)) {
+                SlotPlusLog.info("  item on cursor - passing through");
+                return true;
+            }
             if (!Bindings.isHotbarSlot(containerSlot) && !Bindings.isHotbarSlot(partner)) {
                 // The pick-up/place-down flow is middle-click only — one click per input,
                 // same as moving the items by hand. Shift-click stays vanilla quick-move.
-                if (!middleClick || !SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) return true;
+                if (!middleClick || !SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
+                    SlotPlusLog.info("  no hotbar side and (middleClick={}, inventoryPairs={}, slot has item={}) - passing through",
+                            middleClick, SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
+                    return true;
+                }
+                SlotPlusLog.info("  no hotbar side: arming two-click flow - sending PICKUP on menuSlot={}",
+                        SlotGeometry.menuSlotOfContainer(containerSlot));
                 sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(containerSlot), 0, ContainerInput.PICKUP, containerSlot);
                 if (sent) pickupSwapSlot = containerSlot;
             } else {
@@ -207,16 +255,24 @@ final class BindGesture {
                 Slot target = SlotGeometry.findSlot(screen, otherSide, creative);
                 ItemStack hotbarItem = player.getInventory().getItem(hotbarSide);
                 if (target != null) {
-                    if (hotbarItem.isEmpty() && !target.hasItem()) return true;
+                    if (hotbarItem.isEmpty() && !target.hasItem()) {
+                        SlotPlusLog.info("  both sides empty - passing through");
+                        return true;
+                    }
                     if (!vanillaAcceptsSwap(player, target, hotbarItem)) {
                         // Armor slots honor mayPlace/mayPickup server-side (a helmet is never
                         // accepted by the chestplate slot): don't send a click the server
                         // would silently drop — block the vanilla click and say so instead.
+                        SlotPlusLog.info("  rejected client-side: target mayPlace({})={} mayPickup={} targetItem='{}' hotbarItem='{}' - click blocked",
+                                otherSide, target.mayPlace(hotbarItem), target.mayPickup(player), target.getItem().getItem(), hotbarItem.getItem());
                         showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
                         consumedButton = event.button();
                         return false;
                     }
                 }
+                SlotPlusLog.info("  sending SWAP: click menuSlot={} (the {} side) with button={} (hotbar side {})",
+                        SlotGeometry.menuSlotOfContainer(otherSide),
+                        containerSlot == otherSide ? "clicked" : "partner", hotbarSide, hotbarSide);
                 sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(otherSide), hotbarSide, ContainerInput.SWAP, containerSlot);
             }
         }
@@ -224,6 +280,7 @@ final class BindGesture {
             consumedButton = event.button();
             return false;
         }
+        SlotPlusLog.info("  click was not sent (rate limited) - passing through");
         return true;
     }
 
@@ -247,6 +304,7 @@ final class BindGesture {
     private void validatePickupArmed() {
         LocalPlayer player = minecraft.player;
         if (pickupSwapSlot != -1 && (player == null || !anythingCarried(player))) {
+            SlotPlusLog.info("armed swap on slot {} disarmed (cursor is empty again)", pickupSwapSlot);
             pickupSwapSlot = -1;
         }
     }
@@ -264,6 +322,7 @@ final class BindGesture {
         int origin = originContainerSlot;
         clearGesture();
         if (origin == -1) return;
+        SlotPlusLog.info("pairing ended at origin {} (origin was bound: {})", origin, originWasBound);
         if (originWasBound) {
             showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.cleared"));
             playClick();

@@ -22,14 +22,19 @@ final class BindingsStore {
     static void load() {
         try {
             Path path = path();
-            if (!Files.exists(path)) return;
+            if (!Files.exists(path)) {
+                SlotPlusLog.info("no bindings file at {} - starting empty", path);
+                return;
+            }
             try (BufferedReader reader = Files.newBufferedReader(path)) {
                 Data data = GSON.fromJson(reader, Data.class);
                 if (data != null) {
                     Bindings.restore(data.partner());
+                    SlotPlusLog.info("loaded {} partner entries from {}", data.partner().length, path);
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            SlotPlusLog.warn("failed to read bindings file - starting empty", e);
         }
         for (int slot = 0; slot <= Bindings.MAX_SLOT; slot++) {
             Bindings.consistentPartner(slot);
@@ -46,7 +51,9 @@ final class BindingsStore {
                 GSON.toJson(new Data(Bindings.snapshot()), writer);
             }
             Bindings.markClean();
-        } catch (Exception ignored) {
+            SlotPlusLog.info("saved bindings: {}", Bindings.describe());
+        } catch (Exception e) {
+            SlotPlusLog.warn("failed to save bindings file", e);
         }
     }
 

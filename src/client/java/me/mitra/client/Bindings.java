@@ -44,6 +44,7 @@ final class Bindings {
         int p = partner[slot];
         if (p == -1) return -1;
         if (!isBindable(p) || p == slot || partner[p] != slot) {
+            SlotPlusLog.info("self-heal: slot {} pointed at invalid {} - unbound", slot, p);
             unbind(slot);
             return -1;
         }
@@ -58,12 +59,17 @@ final class Bindings {
         partner[a] = b;
         partner[b] = a;
         dirty = true;
+        SlotPlusLog.info("bind: {} <-> {}", a, b);
     }
 
     static boolean unbind(int slot) {
         if (!isBindable(slot)) return false;
+        int previous = partner[slot];
         boolean cleared = clearPartner(slot);
-        if (cleared) dirty = true;
+        if (cleared) {
+            dirty = true;
+            SlotPlusLog.info("unbind: {} (was <-> {})", slot, previous);
+        }
         return cleared;
     }
 
@@ -87,6 +93,16 @@ final class Bindings {
 
     static int[] snapshot() {
         return partner.clone();
+    }
+
+    static String describe() {
+        StringBuilder text = new StringBuilder();
+        for (int slot = 0; slot <= MAX_SLOT; slot++) {
+            if (partner[slot] > slot) {
+                text.append(text.length() == 0 ? "" : ", ").append(slot).append("<->").append(partner[slot]);
+            }
+        }
+        return text.length() == 0 ? "none" : text.toString();
     }
 
     static void restore(int[] snapshot) {
