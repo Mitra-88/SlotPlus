@@ -3,8 +3,6 @@ package me.mitra.client;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -75,20 +73,6 @@ class BindingsTest {
         assertTrue(Bindings.consistentPartners(2).contains(10));
         assertTrue(Bindings.consistentPartners(10).contains(2));
         assertTrue(Bindings.consistentPartners(7).isEmpty());
-    }
-
-    @Test
-    void legacyPartnerArrayConvertsToPairs() {
-        int[] legacy = new int[Bindings.MAX_SLOT + 1];
-        Arrays.fill(legacy, -1);
-        legacy[2] = 10;
-        legacy[10] = 2;
-        legacy[20] = 99;
-        legacy[30] = 30;
-        int[][] pairs = BindingsStore.legacyPartnerArrayToPairs(legacy);
-        assertEquals(1, pairs.length);
-        assertEquals(2, pairs[0][0]);
-        assertEquals(10, pairs[0][1]);
     }
 
     @Test

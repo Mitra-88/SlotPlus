@@ -22,6 +22,7 @@
 	"slotplus.tutorial.line1": "Hold [%s] and click an %s to start a bind.",
 	"slotplus.tutorial.line2": "Then %s (or drag and release over) a %s to finish.",
 	"slotplus.tutorial.line3": "%s a bound slot to swap it with its %s.",
+	"slotplus.tutorial.line4": "Bind more items to the %s to swap between them.",
 	"slotplus.tutorial.dismiss": "Dismiss",
 	"slotplus.msg.cleared": "Binding cleared",
 	"slotplus.msg.swapRejected": "This swap isn't allowed: that slot won't accept this item.",

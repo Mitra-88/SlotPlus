@@ -38,6 +38,8 @@ final class BindingOverlay {
             action("click"), accent("partner slot"));
     private final Component tutorialLine3 = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.line3",
             action("Middle-click"), accent("partner"));
+    private final Component tutorialLine4 = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.line4",
+            accent("same slot"));
     private final Component tutorialDismiss = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.dismiss");
 
     private int dismissMinX;
@@ -174,7 +176,7 @@ final class BindingOverlay {
 
     private void drawTutorial(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         drawPanel(graphics, tutorialTitle,
-                new Component[]{tutorialLine1, tutorialLine2, tutorialLine3}, tutorialDismiss, mouseX, mouseY);
+                new Component[]{tutorialLine1, tutorialLine2, tutorialLine3, tutorialLine4}, tutorialDismiss, mouseX, mouseY);
     }
 
     private void drawPanel(GuiGraphicsExtractor graphics, Component title, Component[] lines,
