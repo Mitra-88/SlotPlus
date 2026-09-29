@@ -20,7 +20,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class BindGesture {
-    private static final long ACTION_CLICK_SPACING_MS = 100;
+    // Deliberate human clicks land roughly 90-210 ms apart; every gap is drawn
+    // independently so the sequence never looks machine-spaced.
+    private static final long ACTION_CLICK_MIN_GAP_MS = 90;
+    private static final long ACTION_CLICK_MAX_GAP_MS = 210;
 
     private record QueuedClick(int menuSlot, ItemStack expectedCarried) {
     }
@@ -253,8 +256,8 @@ final class BindGesture {
             // replays the whole by-hand click sequence from one input: pick up the
             // clicked item, swap it into the partner, and put the partner's item back
             // where the click started. Ends with both slots swapped, cursor empty.
-            // The clicks are spaced ~100 ms apart across frames — servers drop
-            // container clicks that arrive in the same tick.
+            // The clicks are spaced a humanized random gap apart across frames —
+            // servers drop container clicks that arrive in the same tick.
             if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
                 SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
                         SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
@@ -279,9 +282,9 @@ final class BindGesture {
             int second = SlotGeometry.menuSlotOfContainer(partner);
             ItemStack clickedCopy = slot.getItem().copy();
             ItemStack partnerCopy = partnerSlot.getItem().copy();
-            SlotPlusLog.info("swap action #{}: swapping '{}' (slot {}) with '{}' (slot {}) as PICKUP {} -> {} -> {} (spaced {} ms)",
+            SlotPlusLog.info("swap action #{}: swapping '{}' (slot {}) with '{}' (slot {}) as PICKUP {} -> {} -> {} (random human spacing)",
                     actionCounter, describe(slot.getItem()), containerSlot,
-                    describe(partnerSlot.getItem()), partner, first, second, first, ACTION_CLICK_SPACING_MS);
+                    describe(partnerSlot.getItem()), partner, first, second, first);
             long now = Util.getMillis();
             pendingClicks.clear();
             // Each queued click only fires while the cursor holds exactly what the
@@ -363,9 +366,11 @@ final class BindGesture {
             return;
         }
         pendingClicks.remove(0);
-        nextClickAt = now + ACTION_CLICK_SPACING_MS;
-        SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left)",
-                actionCounter, click.menuSlot(), pendingClicks.size());
+        long gap = java.util.concurrent.ThreadLocalRandom.current()
+                .nextLong(ACTION_CLICK_MIN_GAP_MS, ACTION_CLICK_MAX_GAP_MS + 1);
+        nextClickAt = now + gap;
+        SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, next in ~{} ms)",
+                actionCounter, click.menuSlot(), pendingClicks.size(), gap);
         if (creative) {
             swapSender.sendCreativeActionClick(player.inventoryMenu, player, click.menuSlot());
         } else {
@@ -385,7 +390,7 @@ final class BindGesture {
         verifyExpectedA = expectA;
         verifyExpectedB = expectB;
         actionVerifyId = actionCounter;
-        verifyDeadline = Util.getMillis() + ACTION_CLICK_SPACING_MS * pendingClicks.size() + 2000;
+        verifyDeadline = Util.getMillis() + ACTION_CLICK_MAX_GAP_MS * pendingClicks.size() + 2000;
     }
 
     // Runs once per frame while a verification is pending. Logs exactly one line:
