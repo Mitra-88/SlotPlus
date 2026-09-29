@@ -11,7 +11,7 @@ things like keeping your dungeon gear, a wand, or a quick-stash stack one click 
 - **Bind** two slots together: an inventory slot to a hotbar slot, hotbar to hotbar, or an armor piece to a hotbar slot.
 - **Swap** their contents with one click on either slot. Works even if one side is empty.
 - Bound slots show the number of the hotbar key that swaps them (inventory-to-inventory pairs have no number), and a line to their partner when you hover them.
-- Optional toggles in the config: hotbar numbers on bound slots, swap on shift-click for hotbar slots, binding in the creative inventory, and binds that have no hotbar side (inventory-to-inventory; on by default). Swapping such a pair takes two ordinary clicks, same as moving the items by hand: shift-click or middle-click one slot, then click its partner.
+- Optional toggles in the config: hotbar numbers on bound slots, swap on shift-click for hotbar slots, binding in the creative inventory, and binds that have no hotbar side (inventory-to-inventory; on by default). Shift-click or middle-click either slot and it swaps in one go - the mod replays the exact clicks you'd make by hand.
 
 ## How to use it
 
