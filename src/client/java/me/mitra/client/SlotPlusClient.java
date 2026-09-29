@@ -1,7 +1,6 @@
 package me.mitra.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.isxander.yacl3.config.v2.api.autogen.OptionFactory;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -33,7 +32,6 @@ public final class SlotPlusClient implements ClientModInitializer {
                 SlotPlusConfig.isInventoryPairsEnabled(), SlotPlusConfig.isHotbarShiftSwapEnabled());
         BindingsStore.load();
         SlotPlusLog.info("bindings: {}", Bindings.describe());
-        OptionFactory.register(WarningBoolean.class, new WarningBooleanFactory());
 
         bindKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 BIND_KEY_NAME,

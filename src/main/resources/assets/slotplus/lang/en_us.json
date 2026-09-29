@@ -11,7 +11,7 @@
 	"yacl3.config.slotplus:config.creativeSupport.desc": "Also allow binding and swapping while the creative inventory is open. Swaps there use the exact clicks of a manual number-key hotbar swap in creative. Takes effect the next time the inventory is opened. Off by default.",
 	"yacl3.config.slotplus:config.keybindNote": "The bind key can be rebound in Options > Controls > Key Binds.",
 	"yacl3.config.slotplus:config.inventoryPairs": "Inventory-to-inventory binds",
-	"yacl3.config.slotplus:config.inventoryPairs.desc": "Bind slots that don't touch the hotbar to each other (two main-inventory slots, or armor to a main-inventory slot). NEU considers anything besides hotbar binds cheat territory, so this is off by default, and the mod asks every time you enable it (with a don't-show-again option). Swaps here take two ordinary clicks, same as moving the items by hand: shift-click or middle-click one slot, then click its partner. Nothing is automated.",
+	"yacl3.config.slotplus:config.inventoryPairs.desc": "Bind slots that don't touch the hotbar to each other (two main-inventory slots, or armor to a main-inventory slot). On by default. Swaps here take two ordinary clicks, same as moving the items by hand: shift-click or middle-click one slot, then click its partner. Nothing is automated.",
 	"yacl3.config.slotplus:config.showTutorial": "Show the tutorial again",
 	"yacl3.config.slotplus:config.showTutorial.desc": "Tick to see the binding tutorial again the next time you open your inventory. It unticks itself once the tutorial has been shown.",
 	"yacl3.config.slotplus:config.showPartnerDigit": "Show hotbar numbers on bound slots",
@@ -27,10 +27,5 @@
 	"slotplus.msg.swapPending": "Click the %s to finish the swap (same slot cancels)",
 	"slotplus.msg.swapRejected": "This swap isn't allowed: that slot won't accept this item.",
 	"slotplus.msg.offhand": "The offhand can't be bound.",
-	"slotplus.msg.crafting": "Crafting slots can't be bound.",
-	"slotplus.warning.title": "Inventory-to-inventory binds",
-	"slotplus.warning.body": "SlotPlus only ever sends the same ordinary clicks you'd make by hand, at your own pace. Nothing is automated, queued, or faster than a human.\n\nHypixel doesn't publish what is and isn't allowed, so nobody can promise you'll never be flagged.",
-	"slotplus.warning.dontShowAgain": "Don't show me again",
-	"slotplus.warning.yes": "Yes, I'm aware",
-	"slotplus.warning.no": "No, thank you"
+	"slotplus.msg.crafting": "Crafting slots can't be bound."
 }
