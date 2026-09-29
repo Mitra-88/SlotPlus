@@ -26,7 +26,6 @@ final class BindGesture {
     private int originContainerSlot = -1;
     private int consumedButton = -1;
     private boolean originWasBound;
-    private int pickupSwapSlot = -1;
 
     private boolean tutorialOpen;
     private Component message;
@@ -60,11 +59,6 @@ final class BindGesture {
 
     boolean isBindKeyDown() {
         return bindKeyDown;
-    }
-
-    int pickupSwapSlot() {
-        validatePickupArmed();
-        return pickupSwapSlot;
     }
 
     Component activeMessage() {
@@ -202,7 +196,6 @@ final class BindGesture {
 
     private boolean trySwap(MouseButtonEvent event, MultiPlayerGameMode gameMode, LocalPlayer player,
                             Slot slot, int containerSlot) {
-        validatePickupArmed();
         boolean middleClick = event.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE;
         boolean shiftClick = event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.hasShiftDown();
         if (!middleClick && !shiftClick) return true;
@@ -215,7 +208,9 @@ final class BindGesture {
             SlotPlusLog.info("swap: slot {} is not bound - passing through", containerSlot);
             return true;
         }
-        SlotPlusLog.info("swap try: slot {} is bound to {}", containerSlot, partner);
+        SlotPlusLog.info("swap try: slot {} ({}) is bound to slot {} ({})", containerSlot,
+                describe(slot.getItem()), partner, describe(SlotGeometry.findSlot(screen, partner, creative) == null
+                        ? ItemStack.EMPTY : SlotGeometry.findSlot(screen, partner, creative).getItem()));
         if (shiftClick && Bindings.isHotbarSlot(containerSlot)
                 && !Bindings.isArmorSlot(partner) && !SlotPlusConfig.isHotbarShiftSwapEnabled()) {
             // Shift-click on a hotbar slot stays vanilla quick-move, except for armor pairs.
@@ -224,65 +219,69 @@ final class BindGesture {
         }
 
         boolean sent;
-        if (pickupSwapSlot != -1) {
-            if (containerSlot != pickupSwapSlot && partner != pickupSwapSlot) {
-                SlotPlusLog.info("  armed flow: clicked unrelated slot - passing through (item stays on cursor)");
+        if (anythingCarried(player)) {
+            SlotPlusLog.info("  item on cursor - passing through");
+            return true;
+        }
+        if (!Bindings.isHotbarSlot(containerSlot) && !Bindings.isHotbarSlot(partner)) {
+            // No one-click vanilla swap exists between two non-hotbar slots, so this
+            // replays the whole by-hand click sequence in one input: pick up the
+            // clicked item, swap it into the partner, and put the partner's item back
+            // where the click started. Ends with both slots swapped, cursor empty.
+            if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
+                SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
+                        SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
                 return true;
             }
-            SlotPlusLog.info("  armed flow: finishing click on {} - sending second PICKUP", containerSlot);
-            sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(containerSlot), 0, ContainerInput.PICKUP, containerSlot);
-            if (sent) pickupSwapSlot = -1;
+            Slot partnerSlot = SlotGeometry.findSlot(screen, partner, creative);
+            if (partnerSlot == null || !vanillaAcceptsPickupSwap(player, slot, partnerSlot)) {
+                // Don't send a sequence the server would half-execute (e.g. a helmet
+                // bound to the chestplate slot) — block the vanilla click and say so.
+                SlotPlusLog.info("  rejected client-side: sequence PICKUP {} -> {} -> {} not vanilla-legal - click blocked",
+                        containerSlot, partner, containerSlot);
+                showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
+                consumedButton = event.button();
+                return false;
+            }
+            int first = SlotGeometry.menuSlotOfContainer(containerSlot);
+            int second = SlotGeometry.menuSlotOfContainer(partner);
+            SlotPlusLog.info("  no hotbar side: swapping '{}' (slot {}) with '{}' (slot {}) as one action: PICKUP {} -> {} -> {}",
+                    describe(slot.getItem()), containerSlot,
+                    describe(partnerSlot.getItem()), partner, first, second, first);
+            sent = creative
+                    ? swapSender.trySendCreativeAction(player.inventoryMenu, player, new int[]{first, second, first})
+                    : swapSender.trySendAction(player.inventoryMenu, gameMode, player, new int[]{first, second, first});
         } else {
-            if (anythingCarried(player)) {
-                SlotPlusLog.info("  item on cursor - passing through");
-                return true;
-            }
-            if (!Bindings.isHotbarSlot(containerSlot) && !Bindings.isHotbarSlot(partner)) {
-                // Shift-click or middle-click starts the pick-up/place-down flow: this
-                // click picks the item up (one click per input, same as by hand), the
-                // next click on the highlighted partner finishes the swap.
-                if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
-                    SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
-                            SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
+            int hotbarSide = Bindings.hotbarSideOf(containerSlot, partner);
+            int otherSide = containerSlot == hotbarSide ? partner : containerSlot;
+            Slot target = SlotGeometry.findSlot(screen, otherSide, creative);
+            ItemStack hotbarItem = player.getInventory().getItem(hotbarSide);
+            if (target != null) {
+                if (hotbarItem.isEmpty() && !target.hasItem()) {
+                    SlotPlusLog.info("  both sides empty - passing through");
                     return true;
                 }
-                SlotPlusLog.info("  no hotbar side: {} starts the two-click swap - PICKUP on menuSlot={}, next click on slot {} finishes it",
-                        middleClick ? "middle-click" : "shift-click",
-                        SlotGeometry.menuSlotOfContainer(containerSlot), partner);
-                sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(containerSlot), 0, ContainerInput.PICKUP, containerSlot);
-                if (sent) pickupSwapSlot = containerSlot;
-            } else {
-                int hotbarSide = Bindings.hotbarSideOf(containerSlot, partner);
-                int otherSide = containerSlot == hotbarSide ? partner : containerSlot;
-                Slot target = SlotGeometry.findSlot(screen, otherSide, creative);
-                ItemStack hotbarItem = player.getInventory().getItem(hotbarSide);
-                if (target != null) {
-                    if (hotbarItem.isEmpty() && !target.hasItem()) {
-                        SlotPlusLog.info("  both sides empty - passing through");
-                        return true;
-                    }
-                    if (!vanillaAcceptsSwap(player, target, hotbarItem)) {
-                        // Armor slots honor mayPlace/mayPickup server-side (a helmet is never
-                        // accepted by the chestplate slot): don't send a click the server
-                        // would silently drop — block the vanilla click and say so instead.
-                        SlotPlusLog.info("  rejected client-side: target mayPlace({})={} mayPickup={} targetItem='{}' hotbarItem='{}' - click blocked",
-                                otherSide, target.mayPlace(hotbarItem), target.mayPickup(player), target.getItem().getItem(), hotbarItem.getItem());
-                        showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
-                        consumedButton = event.button();
-                        return false;
-                    }
+                if (!vanillaAcceptsSwap(player, target, hotbarItem)) {
+                    // Armor slots honor mayPlace/mayPickup server-side (a helmet is never
+                    // accepted by the chestplate slot): don't send a click the server
+                    // would silently drop — block the vanilla click and say so instead.
+                    SlotPlusLog.info("  rejected client-side: target mayPlace({})={} mayPickup={} targetItem='{}' hotbarItem='{}' - click blocked",
+                            otherSide, target.mayPlace(hotbarItem), target.mayPickup(player), target.getItem().getItem(), hotbarItem.getItem());
+                    showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
+                    consumedButton = event.button();
+                    return false;
                 }
-                SlotPlusLog.info("  sending SWAP: click menuSlot={} (the {} side) with button={} (hotbar side {})",
-                        SlotGeometry.menuSlotOfContainer(otherSide),
-                        containerSlot == otherSide ? "clicked" : "partner", hotbarSide, hotbarSide);
-                sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(otherSide), hotbarSide, ContainerInput.SWAP, containerSlot);
             }
+            SlotPlusLog.info("  sending SWAP: click menuSlot={} (the {} side) with button={} (hotbar side {})",
+                    SlotGeometry.menuSlotOfContainer(otherSide),
+                    containerSlot == otherSide ? "clicked" : "partner", hotbarSide, hotbarSide);
+            sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(otherSide), hotbarSide, ContainerInput.SWAP, containerSlot);
         }
         if (sent) {
             consumedButton = event.button();
             return false;
         }
-        SlotPlusLog.info("  click was not sent (rate limited) - passing through");
+        SlotPlusLog.info("  action was not sent (rate limited) - passing through");
         return true;
     }
 
@@ -290,6 +289,20 @@ final class BindGesture {
     private static boolean vanillaAcceptsSwap(LocalPlayer player, Slot target, ItemStack hotbarItem) {
         if (hotbarItem.isEmpty()) return target.mayPickup(player);
         return target.mayPlace(hotbarItem) && (!target.hasItem() || target.mayPickup(player));
+    }
+
+    // Mirrors the three-PICKUP sequence: pick up the clicked item, swap it with the
+    // partner's contents, place the partner's item back into the emptied slot.
+    private static boolean vanillaAcceptsPickupSwap(LocalPlayer player, Slot from, Slot to) {
+        ItemStack moving = from.getItem();
+        if (moving.isEmpty() || !from.mayPickup(player)) return false;
+        if (to.getItem().isEmpty() ? !to.mayPlace(moving) : !to.mayPickup(player) || !to.mayPlace(moving)) return false;
+        return to.getItem().isEmpty() || from.mayPlace(to.getItem());
+    }
+
+    private static String describe(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return "empty";
+        return "'" + stack.getHoverName().getString() + "' (" + stack.getItem() + " x" + stack.getCount() + ")";
     }
 
     private boolean sendClick(LocalPlayer player, MultiPlayerGameMode gameMode, int menuSlot, int button,
@@ -301,14 +314,6 @@ final class BindGesture {
 
     private boolean anythingCarried(LocalPlayer player) {
         return !screen.getMenu().getCarried().isEmpty() || !player.inventoryMenu.getCarried().isEmpty();
-    }
-
-    private void validatePickupArmed() {
-        LocalPlayer player = minecraft.player;
-        if (pickupSwapSlot != -1 && (player == null || !anythingCarried(player))) {
-            SlotPlusLog.info("armed swap on slot {} disarmed (cursor is empty again)", pickupSwapSlot);
-            pickupSwapSlot = -1;
-        }
     }
 
     private void completePairing(int targetContainerSlot) {
@@ -334,7 +339,6 @@ final class BindGesture {
     private void clearGesture() {
         originContainerSlot = -1;
         consumedButton = -1;
-        pickupSwapSlot = -1;
     }
 
     private boolean isValidPartner(Slot slot) {

@@ -37,8 +37,6 @@ final class BindingOverlay {
     private final Component tutorialLine3 = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.line3",
             action("Middle-click"), accent("partner"));
     private final Component tutorialDismiss = Component.translatable(SlotPlusClient.MOD_ID + ".tutorial.dismiss");
-    private final Component swapPendingMessage = Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapPending",
-            accent("highlighted slot"));
 
     private int dismissMinX;
     private int dismissMaxX;
@@ -74,7 +72,6 @@ final class BindingOverlay {
             drawPairing(graphics, mouseX, mouseY);
         } else {
             drawBindingLine(graphics, mouseX, mouseY);
-            drawPickupTarget(graphics);
         }
 
         if (gesture.isBindKeyDown()) {
@@ -135,16 +132,6 @@ final class BindingOverlay {
         }
     }
 
-    private void drawPickupTarget(GuiGraphicsExtractor graphics) {
-        int pending = gesture.pickupSwapSlot();
-        if (pending == -1) return;
-        int partner = Bindings.consistentPartner(pending);
-        if (partner == -1) return;
-        Slot partnerSlot = SlotGeometry.findSlot(screen, partner, creative);
-        if (partnerSlot == null) return;
-        graphics.outline(SlotGeometry.slotX(screen, partnerSlot), SlotGeometry.slotY(screen, partnerSlot), 16, 16, TARGET_OUTLINE_COLOR);
-    }
-
     private void drawPartnerDigit(GuiGraphicsExtractor graphics, int x, int y, int hotbarSide) {
         Component digit = Component.literal(String.valueOf(hotbarSide + 1));
         var font = screen.getFont();
@@ -165,7 +152,7 @@ final class BindingOverlay {
     }
 
     private void drawMessage(GuiGraphicsExtractor graphics) {
-        Component message = gesture.pickupSwapSlot() != -1 ? swapPendingMessage : gesture.activeMessage();
+        Component message = gesture.activeMessage();
         if (message == null) return;
         var font = screen.getFont();
         int panelWidth = font.width(message) + 24;

@@ -24,7 +24,6 @@
 	"slotplus.tutorial.line3": "%s a bound slot to swap it with its %s.",
 	"slotplus.tutorial.dismiss": "Dismiss",
 	"slotplus.msg.cleared": "Binding cleared",
-	"slotplus.msg.swapPending": "Click the %s to finish the swap (same slot cancels)",
 	"slotplus.msg.swapRejected": "This swap isn't allowed: that slot won't accept this item.",
 	"slotplus.msg.offhand": "The offhand can't be bound.",
 	"slotplus.msg.crafting": "Crafting slots can't be bound."
