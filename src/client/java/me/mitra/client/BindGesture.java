@@ -28,7 +28,7 @@ final class BindGesture {
     // to confirm the previous one before firing.
     private static final long ACTION_CLICK_MIN_GAP_MS = 55;
     private static final long ACTION_CLICK_MAX_GAP_MS = 135;
-    private static final long STATE_ID_WAIT_MS = 1500;
+    private static final long STATE_ID_WAIT_MS = 3000;
 
     // The mid-sequence cursor check only cares whether the cursor holds an item
     // when the sequence predicts one (and is empty when it doesn't). Comparing
@@ -432,6 +432,11 @@ final class BindGesture {
         nextClickAt = now + gap;
         SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, next in ~{} ms)",
                 actionCounter, click.menuSlot(), pendingClicks.size(), gap);
+        if (pendingClicks.isEmpty()) {
+            // Last click of the sequence is out - give the server time to accept
+            // and sync it, then compare the slots against the prediction.
+            verifyDeadline = now + 4000;
+        }
         if (creative) {
             swapSender.sendCreativeActionClick(player.inventoryMenu, player, click.menuSlot());
         } else {
@@ -444,14 +449,16 @@ final class BindGesture {
     }
 
     // Records the state both slots should have once the server accepts the action.
-    // verifyTick compares against it a moment later and reports any correction.
+    // The verification deadline only starts when the queue's last click is sent
+    // (in flushDueClicks) - starting it at enqueue would fire the check mid-sequence
+    // whenever a click sat a while waiting for server confirmation.
     private void expectAfterSwap(int slotA, ItemStack expectA, int slotB, ItemStack expectB) {
         verifySlotA = slotA;
         verifySlotB = slotB;
         verifyExpectedA = expectA;
         verifyExpectedB = expectB;
         actionVerifyId = actionCounter;
-        verifyDeadline = Util.getMillis() + ACTION_CLICK_MAX_GAP_MS * pendingClicks.size() + 2000;
+        verifyDeadline = 0;
     }
 
     // Runs once per frame while a verification is pending. Logs exactly one line:
