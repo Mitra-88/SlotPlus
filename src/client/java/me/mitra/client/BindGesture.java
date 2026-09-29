@@ -16,17 +16,29 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
+import java.util.List;
+
 final class BindGesture {
+    private static final long ACTION_CLICK_SPACING_MS = 100;
+
+    private record QueuedClick(int menuSlot, ItemStack expectedCarried) {
+    }
+
     private final AbstractContainerScreen<?> screen;
     private final Minecraft minecraft;
     private final boolean creative;
     private final SwapSender swapSender = new SwapSender();
+    private final List<QueuedClick> pendingClicks = new ArrayList<>();
+    private long nextClickAt;
+    private long actionCounter;
 
     private boolean bindKeyDown;
     private int originContainerSlot = -1;
     private int consumedButton = -1;
     private boolean originWasBound;
     private long verifyDeadline;
+    private long actionVerifyId;
     private int verifySlotA = -1;
     private int verifySlotB = -1;
     private ItemStack verifyExpectedA = ItemStack.EMPTY;
@@ -168,6 +180,11 @@ final class BindGesture {
     }
 
     void reset() {
+        if (!pendingClicks.isEmpty()) {
+            SlotPlusLog.warn("swap action #{} cancelled: the screen closed with {} click(s) still pending",
+                    actionCounter, pendingClicks.size());
+        }
+        pendingClicks.clear();
         clearGesture();
         bindKeyDown = false;
         verifyDeadline = 0;
@@ -233,9 +250,11 @@ final class BindGesture {
         }
         if (!Bindings.isHotbarSlot(containerSlot) && !Bindings.isHotbarSlot(partner)) {
             // No one-click vanilla swap exists between two non-hotbar slots, so this
-            // replays the whole by-hand click sequence in one input: pick up the
+            // replays the whole by-hand click sequence from one input: pick up the
             // clicked item, swap it into the partner, and put the partner's item back
             // where the click started. Ends with both slots swapped, cursor empty.
+            // The clicks are spaced ~100 ms apart across frames — servers drop
+            // container clicks that arrive in the same tick.
             if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
                 SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
                         SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
@@ -251,17 +270,29 @@ final class BindGesture {
                 consumedButton = event.button();
                 return false;
             }
+            if (!swapSender.tryBeginAction(containerSlot)) {
+                SlotPlusLog.info("  action was not sent (rate limited) - passing through");
+                return true;
+            }
+            actionCounter++;
             int first = SlotGeometry.menuSlotOfContainer(containerSlot);
             int second = SlotGeometry.menuSlotOfContainer(partner);
-            SlotPlusLog.info("  no hotbar side: swapping '{}' (slot {}) with '{}' (slot {}) as one action: PICKUP {} -> {} -> {}",
-                    describe(slot.getItem()), containerSlot,
-                    describe(partnerSlot.getItem()), partner, first, second, first);
-            sent = creative
-                    ? swapSender.trySendCreativeAction(player.inventoryMenu, player, new int[]{first, second, first})
-                    : swapSender.trySendAction(player.inventoryMenu, gameMode, player, new int[]{first, second, first});
-            if (sent) {
-                expectAfterSwap(containerSlot, partnerSlot.getItem().copy(), partner, slot.getItem().copy());
-            }
+            ItemStack clickedCopy = slot.getItem().copy();
+            ItemStack partnerCopy = partnerSlot.getItem().copy();
+            SlotPlusLog.info("swap action #{}: swapping '{}' (slot {}) with '{}' (slot {}) as PICKUP {} -> {} -> {} (spaced {} ms)",
+                    actionCounter, describe(slot.getItem()), containerSlot,
+                    describe(partnerSlot.getItem()), partner, first, second, first, ACTION_CLICK_SPACING_MS);
+            long now = Util.getMillis();
+            pendingClicks.clear();
+            // Each queued click only fires while the cursor holds exactly what the
+            // by-hand sequence predicts; otherwise the rest is cancelled.
+            pendingClicks.add(new QueuedClick(first, ItemStack.EMPTY));
+            pendingClicks.add(new QueuedClick(second, clickedCopy));
+            pendingClicks.add(new QueuedClick(first, partnerCopy));
+            nextClickAt = now;
+            expectAfterSwap(containerSlot, partnerCopy, partner, clickedCopy);
+            consumedButton = event.button();
+            return false;
         } else {
             int hotbarSide = Bindings.hotbarSideOf(containerSlot, partner);
             int otherSide = containerSlot == hotbarSide ? partner : containerSlot;
@@ -302,6 +333,50 @@ final class BindGesture {
         return true;
     }
 
+    // Runs once per frame from the afterForeground callback. Flushes due swap
+    // clicks, then verifies a finished action against its prediction.
+    void tick() {
+        flushDueClicks();
+        verifyTick();
+    }
+
+    // Sends the queued by-hand click sequence, spaced ~100 ms apart. Each click
+    // only fires while the cursor holds exactly what the sequence predicts; on any
+    // mismatch the remaining clicks are cancelled and logged, never guessed.
+    private void flushDueClicks() {
+        if (pendingClicks.isEmpty()) return;
+        LocalPlayer player = minecraft.player;
+        if (player == null) {
+            SlotPlusLog.warn("swap action cancelled: player is gone ({} click(s) were still pending)", pendingClicks.size());
+            pendingClicks.clear();
+            return;
+        }
+        long now = Util.getMillis();
+        if (now < nextClickAt) return;
+        QueuedClick click = pendingClicks.get(0);
+        ItemStack carried = screen.getMenu().getCarried();
+        if (!ItemStack.matches(carried, click.expectedCarried())) {
+            SlotPlusLog.warn("swap action #{} aborted mid-sequence: cursor holds {} but {} was expected - remaining click(s) cancelled, place the item by hand",
+                    actionCounter, describe(carried), describe(click.expectedCarried()));
+            pendingClicks.clear();
+            verifyDeadline = 0;
+            return;
+        }
+        pendingClicks.remove(0);
+        nextClickAt = now + ACTION_CLICK_SPACING_MS;
+        SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left)",
+                actionCounter, click.menuSlot(), pendingClicks.size());
+        if (creative) {
+            swapSender.sendCreativeActionClick(player.inventoryMenu, player, click.menuSlot());
+        } else {
+            swapSender.sendActionClick(player.inventoryMenu, gameMode(), player, click.menuSlot());
+        }
+    }
+
+    private MultiPlayerGameMode gameMode() {
+        return minecraft.gameMode;
+    }
+
     // Records the state both slots should have once the server accepts the action.
     // verifyTick compares against it a moment later and reports any correction.
     private void expectAfterSwap(int slotA, ItemStack expectA, int slotB, ItemStack expectB) {
@@ -309,29 +384,40 @@ final class BindGesture {
         verifySlotB = slotB;
         verifyExpectedA = expectA;
         verifyExpectedB = expectB;
-        verifyDeadline = Util.getMillis() + 2000;
+        actionVerifyId = actionCounter;
+        verifyDeadline = Util.getMillis() + ACTION_CLICK_SPACING_MS * pendingClicks.size() + 2000;
     }
 
     // Runs once per frame while a verification is pending. Logs exactly one line:
-    // either the server accepted the action (slots match the prediction) or it
-    // corrected something, which is the signal to look at the shared log.
-    void verifyTick() {
+    // either the server accepted the action (both slots match the prediction, exactly
+    // or item-for-item) or it corrected something, which is the signal to look here.
+    private void verifyTick() {
         if (verifyDeadline == 0 || Util.getMillis() <= verifyDeadline) return;
         verifyDeadline = 0;
         Slot slotA = SlotGeometry.findSlot(screen, verifySlotA, creative);
         Slot slotB = SlotGeometry.findSlot(screen, verifySlotB, creative);
         if (slotA == null || slotB == null) return;
-        boolean matches = ItemStack.matches(slotA.getItem(), verifyExpectedA)
+        boolean exact = ItemStack.matches(slotA.getItem(), verifyExpectedA)
                 && ItemStack.matches(slotB.getItem(), verifyExpectedB);
-        if (matches) {
-            SlotPlusLog.info("post-swap check: server accepted the action (both slots match the prediction)");
-        } else {
-            SlotPlusLog.warn("post-swap check FAILED: server state differs from prediction - slot {} expected {} found {}, slot {} expected {} found {}",
-                    verifySlotA, describe(verifyExpectedA), describe(slotA.getItem()),
-                    verifySlotB, describe(verifyExpectedB), describe(slotB.getItem()));
+        if (exact) {
+            SlotPlusLog.info("post-swap check: action #{} accepted - both slots match the prediction exactly",
+                    actionVerifyId);
+            return;
         }
-        verifyExpectedA = ItemStack.EMPTY;
-        verifyExpectedB = ItemStack.EMPTY;
+        boolean sameItems = sameItem(slotA.getItem(), verifyExpectedA) && sameItem(slotB.getItem(), verifyExpectedB);
+        if (sameItems) {
+            SlotPlusLog.info("post-swap check: action #{} accepted - right items in both slots, server re-sent their data",
+                    actionVerifyId);
+            return;
+        }
+        SlotPlusLog.warn("post-swap check FAILED for action #{}: server state differs from prediction - slot {} expected {} found {}, slot {} expected {} found {}",
+                actionVerifyId,
+                verifySlotA, describe(verifyExpectedA), describe(slotA.getItem()),
+                verifySlotB, describe(verifyExpectedB), describe(slotB.getItem()));
+    }
+
+    private static boolean sameItem(ItemStack stack, ItemStack expected) {
+        return stack.getItem() == expected.getItem() && stack.getCount() == expected.getCount();
     }
 
     // Mirrors AbstractContainerMenu's SWAP case, which honors mayPickup/mayPlace.

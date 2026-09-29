@@ -19,7 +19,7 @@ final class ScreenController {
         ScreenKeyboardEvents.afterKeyPress(screen).register((_, event) -> gesture.onKeyPress(event));
         ScreenKeyboardEvents.afterKeyRelease(screen).register((_, event) -> gesture.onKeyRelease(event));
         ScreenEvents.afterForeground(screen).register((_, graphics, mouseX, mouseY, _) -> {
-            gesture.verifyTick();
+            gesture.tick();
             overlay.render(graphics, mouseX, mouseY);
         });
         ScreenEvents.remove(screen).register(_ -> {
