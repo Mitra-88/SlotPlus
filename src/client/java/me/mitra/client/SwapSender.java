@@ -31,24 +31,21 @@ final class SwapSender {
     }
 
     // Pairs without a hotbar side replay their full by-hand click sequence (PICKUPs)
-    // from one input; a single rate-limit gate covers the whole action.
-    boolean trySendAction(InventoryMenu menu, MultiPlayerGameMode gameMode, LocalPlayer player, int[] clickedSlots) {
-        if (isRateLimited(clickedSlots[0])) return false;
-        for (int slot : clickedSlots) {
-            SlotPlusLog.info("click sent: containerId={} menuSlot={} button=0 PICKUP", menu.containerId, slot);
-            gameMode.handleContainerInput(menu.containerId, slot, 0, ContainerInput.PICKUP, player);
-        }
-        return true;
+    // from one input, spaced ~100 ms apart by the gesture's queue. One rate-limit
+    // gate covers the whole action.
+    boolean tryBeginAction(int rateLimitKey) {
+        return !isRateLimited(rateLimitKey);
     }
 
-    boolean trySendCreativeAction(InventoryMenu menu, Player player, int[] clickedSlots) {
-        if (isRateLimited(clickedSlots[0])) return false;
-        for (int slot : clickedSlots) {
-            SlotPlusLog.info("creative click: menuSlot={} button=0 PICKUP -> inventoryMenu.clicked() + broadcastChanges()", slot);
-            menu.clicked(slot, 0, ContainerInput.PICKUP, player);
-            menu.broadcastChanges();
-        }
-        return true;
+    void sendActionClick(InventoryMenu menu, MultiPlayerGameMode gameMode, LocalPlayer player, int menuSlot) {
+        SlotPlusLog.info("click sent: containerId={} menuSlot={} button=0 PICKUP", menu.containerId, menuSlot);
+        gameMode.handleContainerInput(menu.containerId, menuSlot, 0, ContainerInput.PICKUP, player);
+    }
+
+    void sendCreativeActionClick(InventoryMenu menu, Player player, int menuSlot) {
+        SlotPlusLog.info("creative action click: menuSlot={} button=0 PICKUP -> inventoryMenu.clicked() + broadcastChanges()", menuSlot);
+        menu.clicked(menuSlot, 0, ContainerInput.PICKUP, player);
+        menu.broadcastChanges();
     }
 
     private boolean isRateLimited(int rateLimitKey) {
