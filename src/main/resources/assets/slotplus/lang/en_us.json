@@ -12,6 +12,8 @@
 	"yacl3.config.slotplus:config.keybindNote": "The bind key can be rebound in Options > Controls > Key Binds.",
 	"yacl3.config.slotplus:config.inventoryPairs": "Inventory-to-inventory binds",
 	"yacl3.config.slotplus:config.inventoryPairs.desc": "Bind slots that don't touch the hotbar to each other (two main-inventory slots, or armor to a main-inventory slot). On by default. Swaps here take two ordinary clicks, same as moving the items by hand: shift-click or middle-click one slot, then click its partner. Nothing is automated.",
+	"yacl3.config.slotplus:config.fastSwap": "Fast inventory-to-inventory swaps",
+	"yacl3.config.slotplus:config.fastSwap.desc": "For swaps that don't involve the hotbar: send each swap click as soon as the server confirms the previous one, without the humanized delay between them. Makes the pickup flash on your cursor as short as the server allows. The clicks are still sent one at a time, never together. Off by default.",
 	"yacl3.config.slotplus:config.showTutorial": "Show the tutorial again",
 	"yacl3.config.slotplus:config.showTutorial.desc": "Tick to see the binding tutorial again the next time you open your inventory. It unticks itself once the tutorial has been shown.",
 	"yacl3.config.slotplus:config.showPartnerDigit": "Show hotbar numbers on bound slots",

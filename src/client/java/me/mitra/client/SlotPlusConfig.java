@@ -49,6 +49,11 @@ public final class SlotPlusConfig {
     public boolean inventoryPairs = true;
 
     @AutoGen(category = CATEGORY_GENERAL)
+    @Boolean(colored = true)
+    @SerialEntry(comment = "Send no-hotbar-side swap clicks as soon as the server confirms each one, without the humanized delay between them")
+    public boolean fastSwap = false;
+
+    @AutoGen(category = CATEGORY_GENERAL)
     @TickBox
     @SerialEntry(comment = "Show the binding tutorial again on the next inventory open")
     public boolean showTutorial = true;
@@ -77,6 +82,10 @@ public final class SlotPlusConfig {
 
     static boolean isInventoryPairsEnabled() {
         return HANDLER.instance().inventoryPairs;
+    }
+
+    static boolean isFastSwapEnabled() {
+        return HANDLER.instance().fastSwap;
     }
 
     static boolean isHotbarShiftSwapEnabled() {

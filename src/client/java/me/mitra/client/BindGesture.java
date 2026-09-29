@@ -24,6 +24,7 @@ final class BindGesture {
     // independently so the sequence never looks machine-spaced.
     private static final long ACTION_CLICK_MIN_GAP_MS = 90;
     private static final long ACTION_CLICK_MAX_GAP_MS = 210;
+    private static final long STATE_ID_WAIT_MS = 750;
 
     private record QueuedClick(int menuSlot, ItemStack expectedCarried) {
     }
@@ -35,6 +36,9 @@ final class BindGesture {
     private final List<QueuedClick> pendingClicks = new ArrayList<>();
     private long nextClickAt;
     private long actionCounter;
+    private boolean previousClickConfirmed = true;
+    private long previousSentAt;
+    private int lastSeenStateId;
 
     private boolean bindKeyDown;
     private int originContainerSlot = -1;
@@ -293,6 +297,9 @@ final class BindGesture {
             pendingClicks.add(new QueuedClick(second, clickedCopy));
             pendingClicks.add(new QueuedClick(first, partnerCopy));
             nextClickAt = now;
+            previousClickConfirmed = true;
+            previousSentAt = now;
+            lastSeenStateId = player.inventoryMenu.getStateId();
             expectAfterSwap(containerSlot, partnerCopy, partner, clickedCopy);
             consumedButton = event.button();
             return false;
@@ -343,9 +350,12 @@ final class BindGesture {
         verifyTick();
     }
 
-    // Sends the queued by-hand click sequence, spaced ~100 ms apart. Each click
-    // only fires while the cursor holds exactly what the sequence predicts; on any
-    // mismatch the remaining clicks are cancelled and logged, never guessed.
+    // Sends the queued by-hand click sequence. The next click only fires once the
+    // server has confirmed the previous one (the menu's stateId advanced) — sending
+    // on a stale stateId is what makes strict servers drop clicks. After the
+    // confirmation, fast mode fires immediately; the default adds a humanized
+    // random delay. A click that never gets confirmed within 750 ms is sent anyway,
+    // and a cursor that doesn't hold the predicted stack cancels the rest.
     private void flushDueClicks() {
         if (pendingClicks.isEmpty()) return;
         LocalPlayer player = minecraft.player;
@@ -355,6 +365,21 @@ final class BindGesture {
             return;
         }
         long now = Util.getMillis();
+        if (!previousClickConfirmed) {
+            int currentStateId = player.inventoryMenu.getStateId();
+            if (currentStateId != lastSeenStateId) {
+                SlotPlusLog.info("swap action #{}: server confirmed the click in {} ms",
+                        actionCounter, now - previousSentAt);
+                lastSeenStateId = currentStateId;
+                previousClickConfirmed = true;
+            } else if (now - previousSentAt >= STATE_ID_WAIT_MS) {
+                SlotPlusLog.info("swap action #{}: no server confirmation within {} ms - proceeding anyway",
+                        actionCounter, STATE_ID_WAIT_MS);
+                previousClickConfirmed = true;
+            } else {
+                return;
+            }
+        }
         if (now < nextClickAt) return;
         QueuedClick click = pendingClicks.get(0);
         ItemStack carried = screen.getMenu().getCarried();
@@ -366,11 +391,20 @@ final class BindGesture {
             return;
         }
         pendingClicks.remove(0);
-        long gap = java.util.concurrent.ThreadLocalRandom.current()
-                .nextLong(ACTION_CLICK_MIN_GAP_MS, ACTION_CLICK_MAX_GAP_MS + 1);
-        nextClickAt = now + gap;
-        SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, next in ~{} ms)",
-                actionCounter, click.menuSlot(), pendingClicks.size(), gap);
+        previousSentAt = now;
+        previousClickConfirmed = false;
+        lastSeenStateId = player.inventoryMenu.getStateId();
+        if (SlotPlusConfig.isFastSwapEnabled()) {
+            nextClickAt = 0;
+            SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, fast mode)",
+                    actionCounter, click.menuSlot(), pendingClicks.size());
+        } else {
+            long gap = java.util.concurrent.ThreadLocalRandom.current()
+                    .nextLong(ACTION_CLICK_MIN_GAP_MS, ACTION_CLICK_MAX_GAP_MS + 1);
+            nextClickAt = now + gap;
+            SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, next in ~{} ms)",
+                    actionCounter, click.menuSlot(), pendingClicks.size(), gap);
+        }
         if (creative) {
             swapSender.sendCreativeActionClick(player.inventoryMenu, player, click.menuSlot());
         } else {
