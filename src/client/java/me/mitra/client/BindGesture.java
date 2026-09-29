@@ -26,6 +26,11 @@ final class BindGesture {
     private int originContainerSlot = -1;
     private int consumedButton = -1;
     private boolean originWasBound;
+    private long verifyDeadline;
+    private int verifySlotA = -1;
+    private int verifySlotB = -1;
+    private ItemStack verifyExpectedA = ItemStack.EMPTY;
+    private ItemStack verifyExpectedB = ItemStack.EMPTY;
 
     private boolean tutorialOpen;
     private Component message;
@@ -165,6 +170,9 @@ final class BindGesture {
     void reset() {
         clearGesture();
         bindKeyDown = false;
+        verifyDeadline = 0;
+        verifyExpectedA = ItemStack.EMPTY;
+        verifyExpectedB = ItemStack.EMPTY;
     }
 
     private boolean startBind(MouseButtonEvent event, LocalPlayer player, Slot slot, int containerSlot) {
@@ -251,31 +259,40 @@ final class BindGesture {
             sent = creative
                     ? swapSender.trySendCreativeAction(player.inventoryMenu, player, new int[]{first, second, first})
                     : swapSender.trySendAction(player.inventoryMenu, gameMode, player, new int[]{first, second, first});
+            if (sent) {
+                expectAfterSwap(containerSlot, partnerSlot.getItem().copy(), partner, slot.getItem().copy());
+            }
         } else {
             int hotbarSide = Bindings.hotbarSideOf(containerSlot, partner);
             int otherSide = containerSlot == hotbarSide ? partner : containerSlot;
             Slot target = SlotGeometry.findSlot(screen, otherSide, creative);
+            if (target == null) {
+                // Partner slot not on this screen: refuse to send an unvalidated click.
+                SlotPlusLog.info("  partner slot {} not found on this screen - passing through", otherSide);
+                return true;
+            }
             ItemStack hotbarItem = player.getInventory().getItem(hotbarSide);
-            if (target != null) {
-                if (hotbarItem.isEmpty() && !target.hasItem()) {
-                    SlotPlusLog.info("  both sides empty - passing through");
-                    return true;
-                }
-                if (!vanillaAcceptsSwap(player, target, hotbarItem)) {
-                    // Armor slots honor mayPlace/mayPickup server-side (a helmet is never
-                    // accepted by the chestplate slot): don't send a click the server
-                    // would silently drop — block the vanilla click and say so instead.
-                    SlotPlusLog.info("  rejected client-side: target mayPlace({})={} mayPickup={} targetItem='{}' hotbarItem='{}' - click blocked",
-                            otherSide, target.mayPlace(hotbarItem), target.mayPickup(player), target.getItem().getItem(), hotbarItem.getItem());
-                    showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
-                    consumedButton = event.button();
-                    return false;
-                }
+            if (hotbarItem.isEmpty() && !target.hasItem()) {
+                SlotPlusLog.info("  both sides empty - passing through");
+                return true;
+            }
+            if (!vanillaAcceptsSwap(player, target, hotbarItem)) {
+                // Armor slots honor mayPlace/mayPickup server-side (a helmet is never
+                // accepted by the chestplate slot): don't send a click the server
+                // would silently drop — block the vanilla click and say so instead.
+                SlotPlusLog.info("  rejected client-side: target mayPlace({})={} mayPickup={} targetItem='{}' hotbarItem='{}' - click blocked",
+                        otherSide, target.mayPlace(hotbarItem), target.mayPickup(player), target.getItem().getItem(), hotbarItem.getItem());
+                showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
+                consumedButton = event.button();
+                return false;
             }
             SlotPlusLog.info("  sending SWAP: click menuSlot={} (the {} side) with button={} (hotbar side {})",
                     SlotGeometry.menuSlotOfContainer(otherSide),
                     containerSlot == otherSide ? "clicked" : "partner", hotbarSide, hotbarSide);
             sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(otherSide), hotbarSide, ContainerInput.SWAP, containerSlot);
+            if (sent) {
+                expectAfterSwap(otherSide, hotbarItem.copy(), hotbarSide, target.getItem().copy());
+            }
         }
         if (sent) {
             consumedButton = event.button();
@@ -283,6 +300,38 @@ final class BindGesture {
         }
         SlotPlusLog.info("  action was not sent (rate limited) - passing through");
         return true;
+    }
+
+    // Records the state both slots should have once the server accepts the action.
+    // verifyTick compares against it a moment later and reports any correction.
+    private void expectAfterSwap(int slotA, ItemStack expectA, int slotB, ItemStack expectB) {
+        verifySlotA = slotA;
+        verifySlotB = slotB;
+        verifyExpectedA = expectA;
+        verifyExpectedB = expectB;
+        verifyDeadline = Util.getMillis() + 2000;
+    }
+
+    // Runs once per frame while a verification is pending. Logs exactly one line:
+    // either the server accepted the action (slots match the prediction) or it
+    // corrected something, which is the signal to look at the shared log.
+    void verifyTick() {
+        if (verifyDeadline == 0 || Util.getMillis() <= verifyDeadline) return;
+        verifyDeadline = 0;
+        Slot slotA = SlotGeometry.findSlot(screen, verifySlotA, creative);
+        Slot slotB = SlotGeometry.findSlot(screen, verifySlotB, creative);
+        if (slotA == null || slotB == null) return;
+        boolean matches = ItemStack.matches(slotA.getItem(), verifyExpectedA)
+                && ItemStack.matches(slotB.getItem(), verifyExpectedB);
+        if (matches) {
+            SlotPlusLog.info("post-swap check: server accepted the action (both slots match the prediction)");
+        } else {
+            SlotPlusLog.warn("post-swap check FAILED: server state differs from prediction - slot {} expected {} found {}, slot {} expected {} found {}",
+                    verifySlotA, describe(verifyExpectedA), describe(slotA.getItem()),
+                    verifySlotB, describe(verifyExpectedB), describe(slotB.getItem()));
+        }
+        verifyExpectedA = ItemStack.EMPTY;
+        verifyExpectedB = ItemStack.EMPTY;
     }
 
     // Mirrors AbstractContainerMenu's SWAP case, which honors mayPickup/mayPlace.

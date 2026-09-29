@@ -18,8 +18,10 @@ final class ScreenController {
         ScreenMouseEvents.allowMouseRelease(screen).register((_, event) -> gesture.onMouseRelease(event));
         ScreenKeyboardEvents.afterKeyPress(screen).register((_, event) -> gesture.onKeyPress(event));
         ScreenKeyboardEvents.afterKeyRelease(screen).register((_, event) -> gesture.onKeyRelease(event));
-        ScreenEvents.afterForeground(screen).register((_, graphics, mouseX, mouseY, _) ->
-                overlay.render(graphics, mouseX, mouseY));
+        ScreenEvents.afterForeground(screen).register((_, graphics, mouseX, mouseY, _) -> {
+            gesture.verifyTick();
+            overlay.render(graphics, mouseX, mouseY);
+        });
         ScreenEvents.remove(screen).register(_ -> {
             SlotPlusLog.info("screen closed: {}", screen.getClass().getName());
             gesture.reset();
