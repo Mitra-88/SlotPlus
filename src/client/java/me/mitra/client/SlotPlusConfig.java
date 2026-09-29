@@ -50,7 +50,7 @@ public final class SlotPlusConfig {
 
     @AutoGen(category = CATEGORY_GENERAL)
     @Boolean(colored = true)
-    @SerialEntry(comment = "Send no-hotbar-side swap clicks as soon as the server confirms each one, without the humanized delay between them")
+    @SerialEntry(comment = "Send no-hotbar-side swap clicks as soon as the server confirms each one, keeping a randomized safety gap of at least 50 ms between clicks")
     public boolean fastSwap = false;
 
     @AutoGen(category = CATEGORY_GENERAL)

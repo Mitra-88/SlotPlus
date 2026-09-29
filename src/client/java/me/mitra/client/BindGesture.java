@@ -23,9 +23,12 @@ final class BindGesture {
     private static final int MOUSE_LEFT = 1;
     private static final int MOUSE_MIDDLE = 2;
     // Deliberate human clicks land roughly 90-210 ms apart; every gap is drawn
-    // independently so the sequence never looks machine-spaced.
+    // independently so the sequence never looks machine-spaced. Fast mode keeps a
+    // randomized 50-120 ms safety floor even when the server confirms instantly.
     private static final long ACTION_CLICK_MIN_GAP_MS = 90;
     private static final long ACTION_CLICK_MAX_GAP_MS = 210;
+    private static final long FAST_SWAP_MIN_GAP_MS = 50;
+    private static final long FAST_SWAP_MAX_GAP_MS = 120;
     private static final long STATE_ID_WAIT_MS = 750;
 
     private record QueuedClick(int menuSlot, ItemStack expectedCarried) {
@@ -396,17 +399,15 @@ final class BindGesture {
         previousSentAt = now;
         previousClickConfirmed = false;
         lastSeenStateId = player.inventoryMenu.getStateId();
-        if (SlotPlusConfig.isFastSwapEnabled()) {
-            nextClickAt = 0;
-            SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, fast mode)",
-                    actionCounter, click.menuSlot(), pendingClicks.size());
-        } else {
-            long gap = java.util.concurrent.ThreadLocalRandom.current()
-                    .nextLong(ACTION_CLICK_MIN_GAP_MS, ACTION_CLICK_MAX_GAP_MS + 1);
-            nextClickAt = now + gap;
-            SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, next in ~{} ms)",
-                    actionCounter, click.menuSlot(), pendingClicks.size(), gap);
-        }
+        boolean fast = SlotPlusConfig.isFastSwapEnabled();
+        long minGap = fast ? FAST_SWAP_MIN_GAP_MS : ACTION_CLICK_MIN_GAP_MS;
+        long maxGap = fast ? FAST_SWAP_MAX_GAP_MS : ACTION_CLICK_MAX_GAP_MS;
+        long gap = java.util.concurrent.ThreadLocalRandom.current().nextLong(minGap, maxGap + 1);
+        // The gap counts from the send time; the confirmation wait above still has
+        // to pass as well, so a click never fires before both are satisfied.
+        nextClickAt = now + gap;
+        SlotPlusLog.info("swap action #{}: click sent: menuSlot={} button=0 PICKUP ({} click(s) left, next in ~{} ms{})",
+                actionCounter, click.menuSlot(), pendingClicks.size(), gap, fast ? ", fast mode" : "");
         if (creative) {
             swapSender.sendCreativeActionClick(player.inventoryMenu, player, click.menuSlot());
         } else {
