@@ -27,7 +27,7 @@ final class BindGesture {
     // the previous one before firing.
     private static final long ACTION_CLICK_MIN_GAP_MS = 55;
     private static final long ACTION_CLICK_MAX_GAP_MS = 135;
-    private static final long STATE_ID_WAIT_MS = 3000;
+    private static final long STATE_ID_WAIT_MS = 1000;
 
     // The mid-sequence cursor check only cares whether the cursor holds an item
     // when the sequence predicts one (and is empty when it doesn't). Comparing
@@ -413,11 +413,12 @@ final class BindGesture {
                 lastSeenStateId = currentStateId;
                 previousClickConfirmed = true;
             } else if (now - previousSentAt >= STATE_ID_WAIT_MS) {
-                SlotPlusLog.warn("swap action #{} aborted: the server never confirmed the click within {} ms - remaining click(s) cancelled, place the item by hand",
+                // Hypixel is slow to sync (not strict): clicks sent after this wait
+                // are accepted, so proceed and let the post-swap check report the
+                // real outcome instead of aborting a swap that would have worked.
+                SlotPlusLog.info("swap action #{}: no server confirmation within {} ms - proceeding anyway",
                         actionCounter, STATE_ID_WAIT_MS);
-                pendingClicks.clear();
-                verifyDeadline = 0;
-                return;
+                previousClickConfirmed = true;
             } else {
                 return;
             }
@@ -429,7 +430,10 @@ final class BindGesture {
             SlotPlusLog.warn("swap action #{} aborted mid-sequence: the cursor is {} but the sequence needed it {} - remaining click(s) cancelled, place the item by hand",
                     actionCounter, cursorHasItem ? "holding an item" : "empty", click.expectsItem() ? "holding the item" : "empty");
             pendingClicks.clear();
-            verifyDeadline = 0;
+            // Keep the verification alive: it will report what the server actually
+            // did with the items, which is exactly what we need to know after an
+            // aborted sequence.
+            verifyDeadline = now + 4000;
             return;
         }
         pendingClicks.remove(0);
