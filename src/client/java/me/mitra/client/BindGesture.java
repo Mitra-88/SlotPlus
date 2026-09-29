@@ -215,14 +215,12 @@ final class BindGesture {
             consumedButton = event.button();
             return false;
         }
-        int previous = Bindings.consistentPartner(containerSlot);
-        originWasBound = previous != -1;
-        Bindings.unbind(containerSlot);
-        BindingsStore.saveIfDirty();
+        int previousPartners = Bindings.consistentPartners(containerSlot).size();
+        originWasBound = previousPartners > 0;
         originContainerSlot = containerSlot;
         consumedButton = event.button();
-        SlotPlusLog.info("bind origin: slot={} (was bound to {}) - now pairing, click another slot or release B",
-                containerSlot, previous);
+        SlotPlusLog.info("bind origin: slot={} ({} partner(s)) - now pairing; click another slot to add a bind, release B outside to unbind",
+                containerSlot, previousPartners);
         return false;
     }
 
@@ -239,112 +237,132 @@ final class BindGesture {
             SlotPlusLog.info("swap: not a player slot - passing through");
             return true;
         }
-        int partner = Bindings.consistentPartner(containerSlot);
-        if (partner == -1) {
+        List<Integer> partners = Bindings.consistentPartners(containerSlot);
+        if (partners.isEmpty()) {
             SlotPlusLog.info("swap: slot {} is not bound - passing through", containerSlot);
             return true;
         }
-        SlotPlusLog.info("swap try: slot {} ({}) is bound to slot {} ({})", containerSlot,
-                describe(slot.getItem()), partner, describe(SlotGeometry.findSlot(screen, partner, creative) == null
-                        ? ItemStack.EMPTY : SlotGeometry.findSlot(screen, partner, creative).getItem()));
+        List<Slot> candidates = orderedPartnerSlots(slot, partners);
+        SlotPlusLog.info("swap try: slot {} ({}) is bound to {} partner(s): {}", containerSlot,
+                describe(slot.getItem()), partners.size(), describeSlots(candidates));
         if (shiftClick && Bindings.isHotbarSlot(containerSlot)
-                && !Bindings.isArmorSlot(partner) && !SlotPlusConfig.isHotbarShiftSwapEnabled()) {
+                && partners.stream().noneMatch(Bindings::isArmorSlot)
+                && !SlotPlusConfig.isHotbarShiftSwapEnabled()) {
             // Shift-click on a hotbar slot stays vanilla quick-move, except for armor pairs.
             SlotPlusLog.info("  shift-click on hotbar side without armor partner (hotbarShiftSwap off) - vanilla quick-move");
             return true;
         }
-
-        boolean sent;
         if (anythingCarried(player)) {
             SlotPlusLog.info("  item on cursor - passing through");
             return true;
         }
-        if (!Bindings.isHotbarSlot(containerSlot) && !Bindings.isHotbarSlot(partner)) {
-            // No one-click vanilla swap exists between two non-hotbar slots, so this
-            // replays the whole by-hand click sequence from one input: pick up the
-            // clicked item, swap it into the partner, and put the partner's item back
-            // where the click started. Ends with both slots swapped, cursor empty.
-            // The clicks are spaced a humanized random gap apart across frames —
-            // servers drop container clicks that arrive in the same tick.
-            if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
-                SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
-                        SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
-                return true;
-            }
-            Slot partnerSlot = SlotGeometry.findSlot(screen, partner, creative);
-            if (partnerSlot == null || !vanillaAcceptsPickupSwap(player, slot, partnerSlot)) {
-                // Don't send a sequence the server would half-execute (e.g. a helmet
-                // bound to the chestplate slot) — block the vanilla click and say so.
-                SlotPlusLog.info("  rejected client-side: sequence PICKUP {} -> {} -> {} not vanilla-legal - click blocked",
-                        containerSlot, partner, containerSlot);
-                showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
+        if (candidates.isEmpty()) {
+            SlotPlusLog.info("  no bound partner slot on this screen - passing through");
+            return true;
+        }
+
+        // Try partners in order: the one holding something different from this
+        // slot's item comes first, so with two helmets bound to the head, clicking
+        // the head always brings in the other helmet. Pairs with a hotbar side use
+        // one SWAP; the rest use the three-PICKUP sequence.
+        boolean rejected = false;
+        boolean rateLimited = false;
+        for (Slot to : candidates) {
+            int partnerSlotNum = SlotGeometry.containerSlotOf(to, creative);
+            if (Bindings.isHotbarSlot(containerSlot) || Bindings.isHotbarSlot(partnerSlotNum)) {
+                int hotbarSide = Bindings.isHotbarSlot(containerSlot) ? containerSlot : partnerSlotNum;
+                int otherSide = hotbarSide == containerSlot ? partnerSlotNum : containerSlot;
+                ItemStack hotbarItem = player.getInventory().getItem(hotbarSide);
+                if (hotbarItem.isEmpty() && !to.hasItem()) continue;
+                if (!vanillaAcceptsSwap(player, to, hotbarItem)) {
+                    rejected = true;
+                    continue;
+                }
+                SlotPlusLog.info("  sending SWAP: click menuSlot={} (the {} side) with button={} (hotbar side {})",
+                        SlotGeometry.menuSlotOfContainer(otherSide),
+                        otherSide == containerSlot ? "clicked" : "partner", hotbarSide, hotbarSide);
+                if (sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(otherSide), hotbarSide, ContainerInput.SWAP, containerSlot)) {
+                    expectAfterSwap(otherSide, hotbarItem.copy(), hotbarSide, to.getItem().copy());
+                    consumedButton = event.button();
+                    return false;
+                }
+                rateLimited = true;
+            } else {
+                if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
+                    SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
+                            SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
+                    return true;
+                }
+                if (!vanillaAcceptsPickupSwap(player, slot, to)) {
+                    rejected = true;
+                    continue;
+                }
+                if (!swapSender.tryBeginAction(containerSlot)) {
+                    rateLimited = true;
+                    break;
+                }
+                actionCounter++;
+                int first = SlotGeometry.menuSlotOfContainer(containerSlot);
+                int second = SlotGeometry.menuSlotOfContainer(partnerSlotNum);
+                ItemStack clickedCopy = slot.getItem().copy();
+                ItemStack partnerCopy = to.getItem().copy();
+                SlotPlusLog.info("swap action #{}: swapping '{}' (slot {}) with '{}' (slot {}) as PICKUP {} -> {} -> {} (random human spacing)",
+                        actionCounter, describe(slot.getItem()), containerSlot,
+                        describe(to.getItem()), partnerSlotNum, first, second, first);
+                long now = Util.getMillis();
+                pendingClicks.clear();
+                // Each queued click only fires while the cursor holds exactly what the
+                // by-hand sequence predicts; otherwise the rest is cancelled.
+                pendingClicks.add(new QueuedClick(first, ItemStack.EMPTY));
+                pendingClicks.add(new QueuedClick(second, clickedCopy));
+                pendingClicks.add(new QueuedClick(first, partnerCopy));
+                nextClickAt = now;
+                previousClickConfirmed = true;
+                previousSentAt = now;
+                lastSeenStateId = player.inventoryMenu.getStateId();
+                expectAfterSwap(containerSlot, partnerCopy, partnerSlotNum, clickedCopy);
                 consumedButton = event.button();
                 return false;
             }
-            if (!swapSender.tryBeginAction(containerSlot)) {
-                SlotPlusLog.info("  action was not sent (rate limited) - passing through");
-                return true;
-            }
-            actionCounter++;
-            int first = SlotGeometry.menuSlotOfContainer(containerSlot);
-            int second = SlotGeometry.menuSlotOfContainer(partner);
-            ItemStack clickedCopy = slot.getItem().copy();
-            ItemStack partnerCopy = partnerSlot.getItem().copy();
-            SlotPlusLog.info("swap action #{}: swapping '{}' (slot {}) with '{}' (slot {}) as PICKUP {} -> {} -> {} (random human spacing)",
-                    actionCounter, describe(slot.getItem()), containerSlot,
-                    describe(partnerSlot.getItem()), partner, first, second, first);
-            long now = Util.getMillis();
-            pendingClicks.clear();
-            // Each queued click only fires while the cursor holds exactly what the
-            // by-hand sequence predicts; otherwise the rest is cancelled.
-            pendingClicks.add(new QueuedClick(first, ItemStack.EMPTY));
-            pendingClicks.add(new QueuedClick(second, clickedCopy));
-            pendingClicks.add(new QueuedClick(first, partnerCopy));
-            nextClickAt = now;
-            previousClickConfirmed = true;
-            previousSentAt = now;
-            lastSeenStateId = player.inventoryMenu.getStateId();
-            expectAfterSwap(containerSlot, partnerCopy, partner, clickedCopy);
-            consumedButton = event.button();
-            return false;
-        } else {
-            int hotbarSide = Bindings.hotbarSideOf(containerSlot, partner);
-            int otherSide = containerSlot == hotbarSide ? partner : containerSlot;
-            Slot target = SlotGeometry.findSlot(screen, otherSide, creative);
-            if (target == null) {
-                // Partner slot not on this screen: refuse to send an unvalidated click.
-                SlotPlusLog.info("  partner slot {} not found on this screen - passing through", otherSide);
-                return true;
-            }
-            ItemStack hotbarItem = player.getInventory().getItem(hotbarSide);
-            if (hotbarItem.isEmpty() && !target.hasItem()) {
-                SlotPlusLog.info("  both sides empty - passing through");
-                return true;
-            }
-            if (!vanillaAcceptsSwap(player, target, hotbarItem)) {
-                // Armor slots honor mayPlace/mayPickup server-side (a helmet is never
-                // accepted by the chestplate slot): don't send a click the server
-                // would silently drop — block the vanilla click and say so instead.
-                SlotPlusLog.info("  rejected client-side: target mayPlace({})={} mayPickup={} targetItem='{}' hotbarItem='{}' - click blocked",
-                        otherSide, target.mayPlace(hotbarItem), target.mayPickup(player), target.getItem().getItem(), hotbarItem.getItem());
-                showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
-                consumedButton = event.button();
-                return false;
-            }
-            SlotPlusLog.info("  sending SWAP: click menuSlot={} (the {} side) with button={} (hotbar side {})",
-                    SlotGeometry.menuSlotOfContainer(otherSide),
-                    containerSlot == otherSide ? "clicked" : "partner", hotbarSide, hotbarSide);
-            sent = sendClick(player, gameMode, SlotGeometry.menuSlotOfContainer(otherSide), hotbarSide, ContainerInput.SWAP, containerSlot);
-            if (sent) {
-                expectAfterSwap(otherSide, hotbarItem.copy(), hotbarSide, target.getItem().copy());
-            }
         }
-        if (sent) {
+        if (rejected) {
+            // No candidate passed the vanilla-legality check - block the vanilla
+            // click and say so instead of letting the server silently drop it.
+            showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.swapRejected"));
             consumedButton = event.button();
             return false;
         }
-        SlotPlusLog.info("  action was not sent (rate limited) - passing through");
+        if (rateLimited) {
+            SlotPlusLog.info("  action was not sent (rate limited) - passing through");
+        }
         return true;
+    }
+
+    // Orders partner slots so the ones holding something different from this
+    // slot's item come first - with two helmets bound to the head, that is the
+    // helmet meant to come in. Falls back to the original bind order.
+    private List<Slot> orderedPartnerSlots(Slot clicked, List<Integer> partners) {
+        List<Slot> candidates = new ArrayList<>();
+        for (int p : partners) {
+            Slot partnerSlot = SlotGeometry.findSlot(screen, p, creative);
+            if (partnerSlot != null) candidates.add(partnerSlot);
+        }
+        ItemStack mine = clicked.getItem();
+        if (!mine.isEmpty()) {
+            candidates.sort((a, b) -> Boolean.compare(
+                    ItemStack.matches(a.getItem(), mine), ItemStack.matches(b.getItem(), mine)));
+        }
+        return candidates;
+    }
+
+    private String describeSlots(List<Slot> slots) {
+        StringBuilder text = new StringBuilder();
+        for (Slot candidate : slots) {
+            text.append(text.length() == 0 ? "" : ", ")
+                    .append(SlotGeometry.containerSlotOf(candidate, creative)).append("=")
+                    .append(describe(candidate.getItem()));
+        }
+        return text.length() == 0 ? "none" : text.toString();
     }
 
     // Runs once per frame from the afterForeground callback. Flushes due swap
@@ -504,6 +522,9 @@ final class BindGesture {
         if (origin == -1) return;
         SlotPlusLog.info("pairing ended at origin {} (origin was bound: {})", origin, originWasBound);
         if (originWasBound) {
+            // Releasing over nothing unbinds the origin from all of its partners.
+            Bindings.unbind(origin);
+            BindingsStore.saveIfDirty();
             showMessage(Component.translatable(SlotPlusClient.MOD_ID + ".msg.cleared"));
             playClick();
         }

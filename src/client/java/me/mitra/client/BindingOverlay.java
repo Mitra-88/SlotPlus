@@ -8,6 +8,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.Slot;
 
+import java.util.List;
+
 final class BindingOverlay {
     private static final Identifier BARRIER_TEXTURE = Identifier.withDefaultNamespace("textures/item/barrier.png");
     private static final int FORBIDDEN_TEXT_COLOR = 0xFFFF5555;
@@ -56,14 +58,20 @@ final class BindingOverlay {
         for (Slot slot : screen.getMenu().slots) {
             if (!SlotGeometry.isPlayerSlot(slot, creative)) continue;
             int containerSlot = SlotGeometry.containerSlotOf(slot, creative);
-            int partner = Bindings.consistentPartner(containerSlot);
-            if (partner == -1) continue;
+            List<Integer> partners = Bindings.consistentPartners(containerSlot);
+            if (partners.isEmpty()) continue;
             int x = SlotGeometry.slotX(screen, slot);
             int y = SlotGeometry.slotY(screen, slot);
             graphics.blit(RenderPipelines.GUI_TEXTURED, SlotPlusClient.BOUND_ICON,
                     x, y, 0.0F, 0.0F, 16, 16, 16, 16);
-            int hotbarSide = Bindings.hotbarSideOf(containerSlot, partner);
-            if (SlotPlusConfig.isPartnerDigitEnabled() && Bindings.isHotbarSlot(hotbarSide)) {
+            int hotbarSide = -1;
+            for (int partner : partners) {
+                if (Bindings.isHotbarSlot(partner)) {
+                    hotbarSide = partner;
+                    break;
+                }
+            }
+            if (SlotPlusConfig.isPartnerDigitEnabled() && hotbarSide != -1) {
                 drawPartnerDigit(graphics, x, y, hotbarSide);
             }
         }
@@ -142,13 +150,14 @@ final class BindingOverlay {
     private void drawBindingLine(GuiGraphicsExtractor graphics, double mouseX, double mouseY) {
         Slot hovered = SlotGeometry.slotAt(screen, mouseX, mouseY);
         if (!SlotGeometry.isPlayerSlot(hovered, creative)) return;
-        int partner = Bindings.consistentPartner(SlotGeometry.containerSlotOf(hovered, creative));
-        if (partner == -1) return;
-        Slot partnerSlot = SlotGeometry.findSlot(screen, partner, creative);
-        if (partnerSlot == null) return;
-        drawLine(graphics,
-                SlotGeometry.slotCenterX(screen, hovered), SlotGeometry.slotCenterY(screen, hovered),
-                SlotGeometry.slotCenterX(screen, partnerSlot), SlotGeometry.slotCenterY(screen, partnerSlot));
+        int x1 = SlotGeometry.slotCenterX(screen, hovered);
+        int y1 = SlotGeometry.slotCenterY(screen, hovered);
+        for (int partner : Bindings.consistentPartners(SlotGeometry.containerSlotOf(hovered, creative))) {
+            Slot partnerSlot = SlotGeometry.findSlot(screen, partner, creative);
+            if (partnerSlot == null) continue;
+            drawLine(graphics, x1, y1,
+                    SlotGeometry.slotCenterX(screen, partnerSlot), SlotGeometry.slotCenterY(screen, partnerSlot));
+        }
     }
 
     private void drawMessage(GuiGraphicsExtractor graphics) {
