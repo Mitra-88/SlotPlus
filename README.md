@@ -16,7 +16,7 @@ things like keeping your dungeon gear, a wand, or a quick-stash stack one click 
 ## How to use it
 
 1. Open your inventory (**E**). A short tutorial shows up the first time.
-2. Hold **B** and click two slots to bind them. Pink outlines show where you can click.
+2. Hold **B** and click two slots to bind them. Bind more items to the same slot by repeating this - every bound slot gets a line to its partners.
 3. Middle-click a bound slot to swap it with its partner. Shift-click on a bound inventory slot also swaps.
 4. To unbind, hold **B**, click the slot, then release **B** outside the pink slots.
 

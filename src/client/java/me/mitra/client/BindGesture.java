@@ -267,6 +267,7 @@ final class BindGesture {
         // one SWAP; the rest use the three-PICKUP sequence.
         boolean rejected = false;
         boolean rateLimited = false;
+        boolean gated = false;
         for (Slot to : candidates) {
             int partnerSlotNum = SlotGeometry.containerSlotOf(to, creative);
             if (Bindings.isHotbarSlot(containerSlot) || Bindings.isHotbarSlot(partnerSlotNum)) {
@@ -289,9 +290,8 @@ final class BindGesture {
                 rateLimited = true;
             } else {
                 if (!SlotPlusConfig.isInventoryPairsEnabled() || slot.getItem().isEmpty()) {
-                    SlotPlusLog.info("  no hotbar side and (inventoryPairs={}, slot has item={}) - passing through",
-                            SlotPlusConfig.isInventoryPairsEnabled(), !slot.getItem().isEmpty());
-                    return true;
+                    gated = true;
+                    continue;
                 }
                 if (!vanillaAcceptsPickupSwap(player, slot, to)) {
                     rejected = true;
@@ -324,6 +324,9 @@ final class BindGesture {
                 consumedButton = event.button();
                 return false;
             }
+        }
+        if (gated) {
+            SlotPlusLog.info("  no hotbar side and inventoryPairs off - passing through");
         }
         if (rejected) {
             // No candidate passed the vanilla-legality check - block the vanilla
@@ -374,10 +377,10 @@ final class BindGesture {
 
     // Sends the queued by-hand click sequence. The next click only fires once the
     // server has confirmed the previous one (the menu's stateId advanced) — sending
-    // on a stale stateId is what makes strict servers drop clicks. After the
-    // confirmation, fast mode fires immediately; the default adds a humanized
-    // random delay. A click that never gets confirmed within 750 ms is sent anyway,
-    // and a cursor that doesn't hold the predicted stack cancels the rest.
+    // on a stale stateId is what makes strict servers drop clicks — plus a
+    // humanized random delay. A click that never gets confirmed within 750 ms is
+    // sent anyway, and a cursor that doesn't hold the predicted stack cancels the
+    // rest.
     private void flushDueClicks() {
         if (pendingClicks.isEmpty()) return;
         LocalPlayer player = minecraft.player;
