@@ -21,9 +21,10 @@ import java.util.List;
 
 final class BindGesture {
     // Quick human clicks land roughly 55-135 ms apart; every gap is drawn
-    // independently so the sequence stays snappy (dungeon swaps are time-critical)
-    // without ever looking machine-spaced. Each click also waits for the server
-    // to confirm the previous one before firing.
+    // independently and auto-tuned to the server's measured sync latency so the
+    // sequence stays snappy (dungeon swaps are time-critical) without ever
+    // looking machine-spaced. Each click also waits for the server to confirm
+    // the previous one before firing.
     private static final long ACTION_CLICK_MIN_GAP_MS = 55;
     private static final long ACTION_CLICK_MAX_GAP_MS = 135;
     private static final long STATE_ID_WAIT_MS = 3000;
@@ -45,6 +46,7 @@ final class BindGesture {
     private boolean previousClickConfirmed = true;
     private long previousSentAt;
     private int lastSeenStateId;
+    private long avgConfirmMs = 60;
 
     private boolean bindKeyDown;
     private int originContainerSlot = -1;
@@ -122,6 +124,14 @@ final class BindGesture {
                 endPairing();
             }
             return true;
+        }
+        if (!pendingClicks.isEmpty()) {
+            // A swap sequence is mid-flight (waiting on the server). Consume stray
+            // clicks so spam or impatience can't scatter the cursor item - the
+            // sequence always completes on its own.
+            SlotPlusLog.info("swap in progress - click consumed until the sequence finishes");
+            consumedButton = event.button();
+            return false;
         }
 
         Slot slot = SlotGeometry.slotAt(screen, event.x(), event.y());
@@ -396,8 +406,10 @@ final class BindGesture {
         if (!previousClickConfirmed) {
             int currentStateId = player.inventoryMenu.getStateId();
             if (currentStateId != lastSeenStateId) {
-                SlotPlusLog.info("swap action #{}: server confirmed the click in {} ms",
-                        actionCounter, now - previousSentAt);
+                long confirmedIn = now - previousSentAt;
+                avgConfirmMs = (avgConfirmMs * 3 + confirmedIn) / 4;
+                SlotPlusLog.info("swap action #{}: server confirmed the click in {} ms (avg ~{} ms)",
+                        actionCounter, confirmedIn, avgConfirmMs);
                 lastSeenStateId = currentStateId;
                 previousClickConfirmed = true;
             } else if (now - previousSentAt >= STATE_ID_WAIT_MS) {
@@ -424,7 +436,12 @@ final class BindGesture {
         previousSentAt = now;
         previousClickConfirmed = false;
         lastSeenStateId = player.inventoryMenu.getStateId();
-        long gap = java.util.concurrent.ThreadLocalRandom.current().nextLong(ACTION_CLICK_MIN_GAP_MS, ACTION_CLICK_MAX_GAP_MS + 1);
+        // Humanized gap, auto-tuned to the server's measured sync latency: on a
+        // fast server the gaps shrink toward the floor (swaps feel instant); on a
+        // slow one the confirmation gate dominates anyway and this changes nothing.
+        long maxGap = Math.max(ACTION_CLICK_MIN_GAP_MS,
+                Math.min(ACTION_CLICK_MAX_GAP_MS, avgConfirmMs * 3 / 2 + 40));
+        long gap = java.util.concurrent.ThreadLocalRandom.current().nextLong(ACTION_CLICK_MIN_GAP_MS, maxGap + 1);
         // The gap counts from the send time; the confirmation wait above still has
         // to pass as well, so a click never fires before both are satisfied.
         nextClickAt = now + gap;
