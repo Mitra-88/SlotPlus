@@ -44,12 +44,9 @@ public final class SlotPlusConfig {
     public boolean creativeSupport = false;
 
     @AutoGen(category = CATEGORY_GENERAL)
-    @WarningBoolean(colored = true)
-    @SerialEntry(comment = "Allow binding two main-inventory slots to each other (NEU considers this cheat territory, swaps use two clicks)")
-    public boolean inventoryPairs = false;
-
-    @SerialEntry(comment = "Whether the inventory-bind warning has been shown")
-    public boolean inventoryPairsWarned = false;
+    @Boolean(colored = true)
+    @SerialEntry(comment = "Allow binding slots that don't touch the hotbar (swaps take two clicks, same as by hand)")
+    public boolean inventoryPairs = true;
 
     @AutoGen(category = CATEGORY_GENERAL)
     @TickBox
