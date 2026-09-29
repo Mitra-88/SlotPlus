@@ -26,9 +26,13 @@ final class BindGesture {
     // to confirm the previous one before firing.
     private static final long ACTION_CLICK_MIN_GAP_MS = 55;
     private static final long ACTION_CLICK_MAX_GAP_MS = 135;
-    private static final long STATE_ID_WAIT_MS = 750;
+    private static final long STATE_ID_WAIT_MS = 1500;
 
-    private record QueuedClick(int menuSlot, ItemStack expectedCarried) {
+    // The mid-sequence cursor check only cares whether the cursor holds an item
+    // when the sequence predicts one (and is empty when it doesn't). Comparing
+    // full item data here would false-abort whenever the server re-sends an item
+    // with re-encoded components, stranding it on the cursor.
+    private record QueuedClick(int menuSlot, boolean expectsItem) {
     }
 
     private final AbstractContainerScreen<?> screen;
@@ -309,11 +313,12 @@ final class BindGesture {
                         describe(to.getItem()), partnerSlotNum, first, second, first);
                 long now = Util.getMillis();
                 pendingClicks.clear();
-                // Each queued click only fires while the cursor holds exactly what the
-                // by-hand sequence predicts; otherwise the rest is cancelled.
-                pendingClicks.add(new QueuedClick(first, ItemStack.EMPTY));
-                pendingClicks.add(new QueuedClick(second, clickedCopy));
-                pendingClicks.add(new QueuedClick(first, partnerCopy));
+                // Each queued click only fires while the cursor state matches the
+                // by-hand sequence (empty to pick up, holding the item to place);
+                // otherwise the rest is cancelled.
+                pendingClicks.add(new QueuedClick(first, false));
+                pendingClicks.add(new QueuedClick(second, true));
+                pendingClicks.add(new QueuedClick(first, true));
                 nextClickAt = now;
                 previousClickConfirmed = true;
                 previousSentAt = now;
@@ -376,9 +381,9 @@ final class BindGesture {
     // Sends the queued by-hand click sequence. The next click only fires once the
     // server has confirmed the previous one (the menu's stateId advanced) — sending
     // on a stale stateId is what makes strict servers drop clicks — plus a
-    // humanized random delay. A click that never gets confirmed within 750 ms is
-    // sent anyway, and a cursor that doesn't hold the predicted stack cancels the
-    // rest.
+    // humanized random delay. If the server never confirms in time, the remaining
+    // clicks are cancelled instead of sent on a guess, and a cursor state that
+    // doesn't match the sequence cancels the rest too.
     private void flushDueClicks() {
         if (pendingClicks.isEmpty()) return;
         LocalPlayer player = minecraft.player;
@@ -396,19 +401,21 @@ final class BindGesture {
                 lastSeenStateId = currentStateId;
                 previousClickConfirmed = true;
             } else if (now - previousSentAt >= STATE_ID_WAIT_MS) {
-                SlotPlusLog.info("swap action #{}: no server confirmation within {} ms - proceeding anyway",
+                SlotPlusLog.warn("swap action #{} aborted: the server never confirmed the click within {} ms - remaining click(s) cancelled, place the item by hand",
                         actionCounter, STATE_ID_WAIT_MS);
-                previousClickConfirmed = true;
+                pendingClicks.clear();
+                verifyDeadline = 0;
+                return;
             } else {
                 return;
             }
         }
         if (now < nextClickAt) return;
         QueuedClick click = pendingClicks.get(0);
-        ItemStack carried = screen.getMenu().getCarried();
-        if (!ItemStack.matches(carried, click.expectedCarried())) {
-            SlotPlusLog.warn("swap action #{} aborted mid-sequence: cursor holds {} but {} was expected - remaining click(s) cancelled, place the item by hand",
-                    actionCounter, describe(carried), describe(click.expectedCarried()));
+        boolean cursorHasItem = !screen.getMenu().getCarried().isEmpty();
+        if (cursorHasItem != click.expectsItem()) {
+            SlotPlusLog.warn("swap action #{} aborted mid-sequence: the cursor is {} but the sequence needed it {} - remaining click(s) cancelled, place the item by hand",
+                    actionCounter, cursorHasItem ? "holding an item" : "empty", click.expectsItem() ? "holding the item" : "empty");
             pendingClicks.clear();
             verifyDeadline = 0;
             return;
