@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25 (Zulu)
-        uses: actions/setup-java@1aa87b638dacaa70f1c903fa9ec9cbd91058e2ff
+        uses: actions/setup-java@d0e6e4dbf773b98efde945f446d2099b2c0d8fd2
         with:
           distribution: 'zulu'
           java-version: '25'
