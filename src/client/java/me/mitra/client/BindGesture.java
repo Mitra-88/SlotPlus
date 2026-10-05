@@ -398,6 +398,15 @@ final class BindGesture {
     // doesn't match the sequence cancels the rest too.
     private void flushDueClicks() {
         if (pendingClicks.isEmpty()) return;
+        if (!inventoryStillOpen()) {
+            // Hard safety gate: a swap click may only ever be sent while the
+            // inventory screen it belongs to is the open screen. Stop right away.
+            SlotPlusLog.warn("swap action #{} cancelled: the inventory is no longer open ({} click(s) were still pending)",
+                    actionCounter, pendingClicks.size());
+            pendingClicks.clear();
+            verifyDeadline = 0;
+            return;
+        }
         LocalPlayer player = minecraft.player;
         if (player == null) {
             SlotPlusLog.warn("swap action cancelled: player is gone ({} click(s) were still pending)", pendingClicks.size());
@@ -543,6 +552,13 @@ final class BindGesture {
 
     private boolean anythingCarried(LocalPlayer player) {
         return !screen.getMenu().getCarried().isEmpty() || !player.inventoryMenu.getCarried().isEmpty();
+    }
+
+    // The queue is only ever flushed from this screen's render callback, so this
+    // should never fail - it exists so that no code path, however unexpected,
+    // can send a container click into a closed or different screen.
+    private boolean inventoryStillOpen() {
+        return minecraft.gui != null && minecraft.gui.screen() == screen;
     }
 
     private void completePairing(int targetContainerSlot) {
